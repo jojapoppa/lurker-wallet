@@ -20,6 +20,8 @@ members = ["api", "config", "controller", "impls", "libwallet", "util"]
 exclude = ["integration"]
 
 [dependencies]
+yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }
+yggdrasil-keys = "0.4.0"
 clap = { version = "2.33", features = ["yaml"] }
 rpassword = "4.0"
 thiserror = "1"
