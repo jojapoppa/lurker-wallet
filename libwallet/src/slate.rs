@@ -49,9 +49,6 @@ use crate::Context;
 use std::net::{Ipv6Addr, SocketAddrV6};
 use std::str::FromStr;
 
-use std::net::{Ipv6Addr, SocketAddrV6};
-use std::str::FromStr;
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;

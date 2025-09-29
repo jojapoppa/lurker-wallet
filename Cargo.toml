@@ -20,10 +20,10 @@ members = ["api", "config", "controller", "impls", "libwallet", "util"]
 exclude = ["integration"]
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }  # Async runtime, net, io
+sodiumoxide = "0.2.7"  # Pin to latest; drops ^ for exact match to resolve conflict
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }
-yggdrasil-keys = "0.4.0"
-tokio = { version = "1.40", features = ["full"] }  # For async I/O in slate send; 1.40+ for stability
-sodiumoxide = "0.2"  # Already likely indirect via grin_core; explicit for box_ crypto
+yggdrasil-keys = "0.4"  # Key derivation (note: hyphen in name, underscore in use)
 clap = { version = "2.33", features = ["yaml"] }
 rpassword = "4.0"
 thiserror = "1"
