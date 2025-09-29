@@ -27,7 +27,10 @@ use crate::grin_util::secp::key::{PublicKey, SecretKey};
 use crate::grin_util::secp::pedersen::Commitment;
 use crate::grin_util::secp::Signature;
 use crate::grin_util::{secp, static_secp_instance};
-use crate::{Error, ErrorKind}; // Grin's error types
+
+use crate::Error; // Keep single Error from root
+use crate::ErrorKind; // Direct crate:: for in-module enum (Grin's libwallet ErrorKind)
+
 use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::Signature as DalekSignature;
 use serde::ser::{Serialize, Serializer};
@@ -43,16 +46,20 @@ use crate::slate_versions::VersionedSlate;
 use crate::slate_versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 use crate::Context;
 
-use sodiumoxide::crypto::box_::{self, Nonce, PublicKey as BoxPK, SecretKey as BoxSK};
-use sodiumoxide::utils::hash;
 use std::net::{Ipv6Addr, SocketAddrV6};
 use std::str::FromStr;
+
+use std::net::{Ipv6Addr, SocketAddrV6};
+use std::str::FromStr;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt}; // From our imports
 use tokio::net::UdpSocket;
-use yggdrasil_keys::Key;
-use yggdrasilctl::Yggdrasil; // For daemon control
-use yggdrasilctl::{AdminSession, Yggdrasil}; // For key derivation if needed
+use tokio::runtime::Runtime;
+
+use yggdrasilctl::{AdminSession, Yggdrasil};
+
+use sodiumoxide::crypto::box_::{self, Nonce, PublicKey as BoxPK, SecretKey as BoxSK};
+use sodiumoxide::utils::hash;
 
 #[derive(Debug, Clone)]
 pub struct PaymentInfo {
@@ -1115,69 +1122,86 @@ impl From<OutputFeaturesV4> for OutputFeatures {
 #[derive(Clone)]
 pub struct YggdrasilSlateSender;
 
-impl crate::slate::SlateSender for YggdrasilSlateSender {
-	fn send(&self, dest: &str, slate: &crate::slate::Slate) -> Result<(), crate::Error> {
-		let rt = tokio::runtime::Runtime::new()?;
-		rt.block_on(async { send_initial_slate_via_yggdrasil(dest, &slate.to_bytes()?).await })
+impl SlateSender for YggdrasilSlateSender {
+	// Direct trait (defined in this module)
+	fn send(&self, dest: &str, slate: &Slate) -> Result<(), crate::Error> {
+		// Direct Slate; scoped Error
+		let rt = Runtime::new().map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		rt.block_on(async {
+			send_initial_slate_via_yggdrasil(
+				dest,
+				&slate
+					.to_bytes()
+					.map_err(|e| ErrorKind::WalletComms(e.to_string()))?,
+			)
+			.await
+		})
 	}
 }
 
-/// Sends the initial slate to a Yggdrasil IPv6 address.
-/// recipient_addr: e.g., "fc12:3456:789a::1" (Yggdrasil node ID-derived IPv6)
-/// slate: The encrypted slate bytes (from Grin's slatepack)
-pub async fn send_initial_slate_via_yggdrasil(
+async fn send_initial_slate_via_yggdrasil(
+	// Private async helper
 	recipient_addr: &str,
 	slate_bytes: &[u8],
 ) -> Result<(), crate::Error> {
-	// Step 1: Parse IPv6 address (validate fc00::/8 prefix for Yggdrasil)
 	let ipv6 = Ipv6Addr::from_str(recipient_addr)
-		.map_err(|_| ErrorKind::WalletComms("Invalid Yggdrasil IPv6 address".to_string()))?;
-
-	if !ipv6.segments()[0].leading_zeros() < 8 || (ipv6.segments()[0] & 0xfe00) != 0xfc00 {
-		// Rough fc00::/8 check (unique local IPv6)
-		return Err(
-			ErrorKind::WalletComms("Not a valid Yggdrasil address (fc00::/8)".to_string()).into(),
-		);
+		.map_err(|_| ErrorKind::WalletComms("Invalid addr".into()))?;
+	if !ipv6.is_unique_local() {
+		return Err(ErrorKind::WalletComms("Not Yggdrasil addr".into()).into());
 	}
-	let socket = SocketAddrV6::new(ipv6, 0, 0, 0); // Port 0 for UDP tunnel
+	let socket_addr = SocketAddrV6::new(ipv6, 0, 0, 0);
 
-	// Step 2: Connect to Yggdrasil daemon (assumes running; start via API if needed)
-	let mut ygg = Yggdrasil::connect_default()
+	let ygg = Yggdrasil::connect_default()
 		.await
-		.map_err(|e| ErrorKind::WalletComms(format!("Yggdrasil connect failed: {}", e)))?;
-
-	// Ensure we're in the mesh (join public peers if not; embed a list in config later)
-	ygg.join_public_peers().await?; // Custom method; impl if not present
-
-	// Step 3: Establish async UDP tunnel to recipient (Yggdrasil handles encryption/routing)
-	let mut stream = ygg
-		.udp_tunnel(&socket)
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+	let admin = ygg
+		.admin_session()
 		.await
-		.map_err(|e| ErrorKind::WalletComms(format!("Tunnel setup failed: {}", e)))?;
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+	// Bootstrap: Add public peers (hardcode; expand later)
+	let peers = r#"["tcp://203.0.113.1:12345", "tcp://198.51.100.1:12345"]"#; // Replace with real peers
+	admin
+		.execute("peers addPeers", Some(peers))
+		.await
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
 
-	// Step 4: Encrypt slate if not already (Grin slatepack is pre-encrypted; add nonce/pubkey from recipient)
-	// Placeholder: Assume slate_bytes is raw; in real, use recipient's pubkey from addr derivation
-	let nonce = Nonce::from_slice(&[0u8; 24]).unwrap(); // Gen real nonce
-	let recipient_pk = PublicKey::from_slice(&[0u8; 32]).unwrap(); // Derive from Yggdrasil key
-	let sender_sk = SecretKey::from_slice(&[0u8; 32]).unwrap(); // From wallet
-	let encrypted_slate = box_::seal(slate_bytes, &nonce, &recipient_pk, &sender_sk);
+	let socket = UdpSocket::bind("0.0.0.0:0")
+		.await
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+	socket
+		.connect(socket_addr)
+		.await
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+	let mut stream = socket;
 
-	// Step 5: Send over tunnel (async write)
+	let nonce = box_::gen_nonce();
+	let pk_bytes = hash::sha256(recipient_addr.as_bytes()).0;
+	let recipient_pk =
+		BoxPK::from_slice(&pk_bytes).ok_or(ErrorKind::WalletComms("Bad PK".into()))?;
+	let sender_sk = BoxSK::from_slice(&[0u8; 32]).ok_or(ErrorKind::WalletComms("Bad SK".into()))?; // Real: wallet keychain
+	let encrypted = box_::seal(slate_bytes, &nonce, &recipient_pk, &sender_sk);
+
+	let payload = [&nonce.0[..], &encrypted.0[..]].concat();
 	stream
-		.write_all(&encrypted_slate)
+		.send(&payload)
 		.await
-		.map_err(|e| ErrorKind::WalletComms(format!("Send failed: {}", e)))?;
-	stream.flush().await?;
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
 
-	// Optional: Read ack/response (for interactive slate; loop for full exchange)
-	let mut buf = [0u8; 1024];
+	let mut buf = [0u8; 8192];
 	let n = stream
-		.read(&mut buf)
+		.recv(&mut buf)
 		.await
-		.map_err(|e| ErrorKind::WalletComms(format!("Read ack failed: {}", e)))?;
-	if n > 0 {
-		// Process response slate here (e.g., deserialize and return)
-		println!("Received response: {:?}", &buf[..n]); // Placeholder
+		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+	if n > 24 {
+		let (cipher, recv_nonce) = buf.split_at(n - 24);
+		let decrypted = box_::open(
+			cipher,
+			&Nonce::from_slice(recv_nonce).unwrap(),
+			&recipient_pk,
+			&sender_sk,
+		)
+		.map_err(|_| ErrorKind::WalletComms("Decrypt fail".into()))?;
+		// Placeholder: Deserialize Slate from decrypted
 	}
 
 	Ok(())
