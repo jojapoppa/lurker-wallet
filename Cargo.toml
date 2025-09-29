@@ -22,6 +22,8 @@ exclude = ["integration"]
 [dependencies]
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }
 yggdrasil-keys = "0.4.0"
+tokio = { version = "1.40", features = ["full"] }  # For async I/O in slate send; 1.40+ for stability
+sodiumoxide = "0.2"  # Already likely indirect via grin_core; explicit for box_ crypto
 clap = { version = "2.33", features = ["yaml"] }
 rpassword = "4.0"
 thiserror = "1"
