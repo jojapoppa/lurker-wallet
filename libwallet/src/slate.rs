@@ -1108,16 +1108,39 @@ impl From<OutputFeaturesV4> for OutputFeatures {
 	}
 }
 
+uses yggdrasilctl's admin API for peers and tokio UdpSocket for tunneling):
+```rust
+use std::net::{Ipv6Addr, SocketAddrV6};
+use std::str::FromStr;
+use tokio::net::UdpSocket;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use yggdrasilctl::{Yggdrasil, AdminSession};
+use sodiumoxide::crypto::box_::{self, Nonce, PublicKey as BoxPK, SecretKey as BoxSK};
+use sodiumoxide::utils::hash;
+
+#[derive(Clone)]
+pub struct YggdrasilSlateSender;
+
+impl crate::slate::SlateSender for YggdrasilSlateSender {
+    fn send(&self, dest: &str, slate: &crate::slate::Slate) -> Result<(), crate::Error> {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            send_initial_slate_via_yggdrasil(dest, &slate.to_bytes()?).await
+        })
+    }
+}
+
 /// Sends the initial slate to a Yggdrasil IPv6 address.
 /// recipient_addr: e.g., "fc12:3456:789a::1" (Yggdrasil node ID-derived IPv6)
 /// slate: The encrypted slate bytes (from Grin's slatepack)
 pub async fn send_initial_slate_via_yggdrasil(
     recipient_addr: &str,
     slate_bytes: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), crate::Error> {
     // Step 1: Parse IPv6 address (validate fc00::/8 prefix for Yggdrasil)
-    let ipv6 = Ipv6Addr::from_str(recipient_addr)
-        .map_err(|_| ErrorKind::WalletComms("Invalid Yggdrasil IPv6 address".to_string()))?;
+    let ipv6 = Ipv6Addr::from_str(recipient_addr).map_err(
+        |_| ErrorKind::WalletComms("Invalid Yggdrasil IPv6 address".to_string()))?;
+
     if !ipv6.segments()[0].leading_zeros() < 8 || (ipv6.segments()[0] & 0xfe00) != 0xfc00 {
         // Rough fc00::/8 check (unique local IPv6)
         return Err(ErrorKind::WalletComms("Not a valid Yggdrasil address (fc00::/8)".to_string()).into());
