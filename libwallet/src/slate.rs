@@ -28,8 +28,8 @@ use crate::grin_util::secp::pedersen::Commitment;
 use crate::grin_util::secp::Signature;
 use crate::grin_util::{secp, static_secp_instance};
 
-use crate::error::ErrorKind;
-use crate::Error; // Keep single Error from root
+use crate::error::ErrorKind as WalletErrorKind;
+use crate::Error; // Keep single Error from root // Alias your enum to avoid clash with std::io::ErrorKind
 
 use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::Signature as DalekSignature;
@@ -1123,13 +1123,13 @@ impl SlateSender for YggdrasilSlateSender {
 	// Direct trait (defined in this module)
 	fn send(&self, dest: &str, slate: &Slate) -> Result<(), crate::Error> {
 		// Direct Slate; scoped Error
-		let rt = Runtime::new().map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		let rt = Runtime::new().map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 		rt.block_on(async {
 			send_initial_slate_via_yggdrasil(
 				dest,
 				&slate
 					.to_bytes()
-					.map_err(|e| ErrorKind::WalletComms(e.to_string()))?,
+					.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?,
 			)
 			.await
 		})
@@ -1142,53 +1142,54 @@ async fn send_initial_slate_via_yggdrasil(
 	slate_bytes: &[u8],
 ) -> Result<(), crate::Error> {
 	let ipv6 = Ipv6Addr::from_str(recipient_addr)
-		.map_err(|_| ErrorKind::WalletComms("Invalid addr".into()))?;
+		.map_err(|_| WalletErrorKind::WalletComms("Invalid addr".into()))?;
 	if !ipv6.is_unique_local() {
-		return Err(ErrorKind::WalletComms("Not Yggdrasil addr".into()).into());
+		return Err(WalletErrorKind::WalletComms("Not Yggdrasil addr".into()).into());
 	}
 	let socket_addr = SocketAddrV6::new(ipv6, 0, 0, 0);
 
 	let ygg = Yggdrasil::connect_default()
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 	let admin = ygg
 		.admin_session()
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 	// Bootstrap: Add public peers (hardcode; expand later)
 	let peers = r#"["tcp://203.0.113.1:12345", "tcp://198.51.100.1:12345"]"#; // Replace with real peers
 	admin
 		.execute("peers addPeers", Some(peers))
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 
 	let socket = UdpSocket::bind("0.0.0.0:0")
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 	socket
 		.connect(socket_addr)
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 	let mut stream = socket;
 
 	let nonce = box_::gen_nonce();
 	let pk_bytes = hash::sha256(recipient_addr.as_bytes()).0;
 	let recipient_pk =
-		BoxPK::from_slice(&pk_bytes).ok_or(ErrorKind::WalletComms("Bad PK".into()))?;
-	let sender_sk = BoxSK::from_slice(&[0u8; 32]).ok_or(ErrorKind::WalletComms("Bad SK".into()))?; // Real: wallet keychain
+		BoxPK::from_slice(&pk_bytes).ok_or(WalletErrorKind::WalletComms("Bad PK".into()))?;
+	let sender_sk =
+		BoxSK::from_slice(&[0u8; 32]).ok_or(WalletErrorKind::WalletComms("Bad SK".into()))?; // Real: wallet keychain
 	let encrypted = box_::seal(slate_bytes, &nonce, &recipient_pk, &sender_sk);
 
 	let payload = [&nonce.0[..], &encrypted.0[..]].concat();
 	stream
 		.send(&payload)
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 
 	let mut buf = [0u8; 8192];
 	let n = stream
 		.recv(&mut buf)
 		.await
-		.map_err(|e| ErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
 	if n > 24 {
 		let (cipher, recv_nonce) = buf.split_at(n - 24);
 		let decrypted = box_::open(
@@ -1197,7 +1198,7 @@ async fn send_initial_slate_via_yggdrasil(
 			&recipient_pk,
 			&sender_sk,
 		)
-		.map_err(|_| ErrorKind::WalletComms("Decrypt fail".into()))?;
+		.map_err(|_| WalletErrorKind::WalletComms("Decrypt fail".into()))?;
 		// Placeholder: Deserialize Slate from decrypted
 	}
 

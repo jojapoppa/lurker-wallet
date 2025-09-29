@@ -46,6 +46,13 @@ impl fmt::Display for ErrorKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(ErrorKind);
 
+impl From<WalletErrorKind> for Error {
+	// If Error is the struct
+	fn from(kind: WalletErrorKind) -> Self {
+		Error(ErrorKind::LibWallet(kind.to_string())) // Or direct variant match
+	}
+}
+
 impl From<ErrorKind> for Error {
 	fn from(kind: ErrorKind) -> Self {
 		Error(kind)
