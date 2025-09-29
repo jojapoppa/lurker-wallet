@@ -28,8 +28,8 @@ use crate::grin_util::secp::pedersen::Commitment;
 use crate::grin_util::secp::Signature;
 use crate::grin_util::{secp, static_secp_instance};
 
+use crate::error::ErrorKind;
 use crate::Error; // Keep single Error from root
-use crate::ErrorKind; // Direct crate:: for in-module enum (Grin's libwallet ErrorKind)
 
 use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::Signature as DalekSignature;

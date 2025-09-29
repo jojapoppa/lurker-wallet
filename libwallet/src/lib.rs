@@ -45,7 +45,7 @@ extern crate strum_macros;
 
 pub mod address;
 pub mod api_impl;
-mod error;
+mod error; pub use error::{Error, ErrorKind};.
 mod internal;
 pub mod mwixnet;
 mod slate;

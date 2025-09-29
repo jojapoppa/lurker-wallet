@@ -21,6 +21,48 @@ use crate::grin_util::secp;
 use crate::util;
 use grin_store;
 
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+	LibWallet(String),
+	Keychain(String),
+	Transaction(String),
+	WalletComms(String), // Add your comms variant here
+	                     // Add other variants as needed (e.g., Secp, IO)
+}
+
+impl fmt::Display for ErrorKind {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			ErrorKind::LibWallet(ref e) => write!(f, "LibWallet Error: {}", e),
+			ErrorKind::Keychain(ref e) => write!(f, "Keychain Error: {}", e),
+			ErrorKind::Transaction(ref e) => write!(f, "Transaction Error: {}", e),
+			ErrorKind::WalletComms(ref e) => write!(f, "Wallet Comms Error: {}", e),
+		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error(ErrorKind);
+
+impl From<ErrorKind> for Error {
+	fn from(kind: ErrorKind) -> Self {
+		Error(kind)
+	}
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
+impl std::error::Error for Error {}
+
+// Export for use
+pub use ErrorKind::*;
+
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, thiserror::Error, Serialize, Deserialize)]
 pub enum Error {
