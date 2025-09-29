@@ -43,6 +43,14 @@ use crate::slate_versions::VersionedSlate;
 use crate::slate_versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 use crate::Context;
 
+use crate::{Error, ErrorKind}; // Grin's error types
+use tokio::io::{AsyncReadExt, AsyncWriteExt}; // From our imports
+use yggdrasilctl::Yggdrasil; // For daemon control
+use yggdrasil_keys::Key; // For key derivation if needed
+use std::net::{Ipv6Addr, SocketAddrV6};
+use std::str::FromStr;
+use sodiumoxide::crypto::box_::{self, Nonce, PublicKey, SecretKey}; // Grin already uses sodium for encryption
+
 #[derive(Debug, Clone)]
 pub struct PaymentInfo {
 	/// Sender address
@@ -1099,3 +1107,60 @@ impl From<OutputFeaturesV4> for OutputFeatures {
 		}
 	}
 }
+
+/// Sends the initial slate to a Yggdrasil IPv6 address.
+/// recipient_addr: e.g., "fc12:3456:789a::1" (Yggdrasil node ID-derived IPv6)
+/// slate: The encrypted slate bytes (from Grin's slatepack)
+pub async fn send_initial_slate_via_yggdrasil(
+    recipient_addr: &str,
+    slate_bytes: &[u8],
+) -> Result<(), Error> {
+    // Step 1: Parse IPv6 address (validate fc00::/8 prefix for Yggdrasil)
+    let ipv6 = Ipv6Addr::from_str(recipient_addr)
+        .map_err(|_| ErrorKind::WalletComms("Invalid Yggdrasil IPv6 address".to_string()))?;
+    if !ipv6.segments()[0].leading_zeros() < 8 || (ipv6.segments()[0] & 0xfe00) != 0xfc00 {
+        // Rough fc00::/8 check (unique local IPv6)
+        return Err(ErrorKind::WalletComms("Not a valid Yggdrasil address (fc00::/8)".to_string()).into());
+    }
+    let socket = SocketAddrV6::new(ipv6, 0, 0, 0); // Port 0 for UDP tunnel
+
+    // Step 2: Connect to Yggdrasil daemon (assumes running; start via API if needed)
+    let mut ygg = Yggdrasil::connect_default().await
+        .map_err(|e| ErrorKind::WalletComms(format!("Yggdrasil connect failed: {}", e)))?;
+
+    // Ensure we're in the mesh (join public peers if not; embed a list in config later)
+    ygg.join_public_peers().await?; // Custom method; impl if not present
+
+    // Step 3: Establish async UDP tunnel to recipient (Yggdrasil handles encryption/routing)
+    let mut stream = ygg.udp_tunnel(&socket).await
+        .map_err(|e| ErrorKind::WalletComms(format!("Tunnel setup failed: {}", e)))?;
+
+    // Step 4: Encrypt slate if not already (Grin slatepack is pre-encrypted; add nonce/pubkey from recipient)
+    // Placeholder: Assume slate_bytes is raw; in real, use recipient's pubkey from addr derivation
+    let nonce = Nonce::from_slice(&[0u8; 24]).unwrap(); // Gen real nonce
+    let recipient_pk = PublicKey::from_slice(&[0u8; 32]).unwrap(); // Derive from Yggdrasil key
+    let sender_sk = SecretKey::from_slice(&[0u8; 32]).unwrap(); // From wallet
+    let encrypted_slate = box_::seal(slate_bytes, &nonce, &recipient_pk, &sender_sk);
+
+    // Step 5: Send over tunnel (async write)
+    stream.write_all(&encrypted_slate).await
+        .map_err(|e| ErrorKind::WalletComms(format!("Send failed: {}", e)))?;
+    stream.flush().await?;
+
+    // Optional: Read ack/response (for interactive slate; loop for full exchange)
+    let mut buf = [0u8; 1024];
+    let n = stream.read(&mut buf).await
+        .map_err(|e| ErrorKind::WalletComms(format!("Read ack failed: {}", e)))?;
+    if n > 0 {
+        // Process response slate here (e.g., deserialize and return)
+        println!("Received response: {:?}", &buf[..n]); // Placeholder
+    }
+
+    Ok(())
+}
+
+// Usage example in wallet API (e.g., in send_tx):
+// In your wallet controller:
+// let recipient_ygg_addr = "fc12:3456:789a::1"; // From user input/QR
+// let slate = create_initial_slate(...); // Grin logic
+// send_initial_slate_via_yggdrasil(recipient_ygg_addr, &slate.to_bytes()).await?;
