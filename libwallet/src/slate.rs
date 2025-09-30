@@ -1149,17 +1149,23 @@ async fn send_initial_slate_via_yggdrasil(
 	let socket_addr = SocketAddrV6::new(ipv6, 0, 0, 0);
 
 	let socket_path = "/run/yggdrasil.sock";
+
 	let socket = UnixStream::connect(socket_path)
 		.await
 		.map_err(|e| Error::WalletComms(e.to_string()))?;
-	let endpoint = match Endpoint::attach(socket).await {
-		Ok(endpoint) => endpoint,
-		Err(e) => {
-			// Handle the error, e.g., log or convert to your Error type
-			println!("Error attaching endpoint: {}", e);
-			return Err(Error::WalletComms(e.to_string()));
-		}
-	};
+	//let socket = UnixStream::connect(socket_path)
+	//    .await
+	//    .map_err(|e| Error::WalletComms(e.to_string()))?;
+
+	let mut endpoint = Endpoint::attach(socket).await;
+	//let endpoint = match Endpoint::attach(socket).await {
+	//    Ok(endpoint) => endpoint,
+	//    Err(e) => {
+	//    // Handle the error, e.g., log or convert to your Error type
+	//    println!("Error attaching endpoint: {}", e);
+	//    return Err(Error::WalletComms(e.to_string()));
+	//    }
+	//};
 
 	// Bootstrap: Add public peers (call add_peer for each; hardcode or load from config)
 	let peers = vec![
@@ -1180,7 +1186,7 @@ async fn send_initial_slate_via_yggdrasil(
 		.connect(socket_addr)
 		.await
 		.map_err(|e| Error::WalletComms(e.to_string()))?;
-	let mut stream = socket;
+	let stream = socket;
 
 	let nonce = box_::gen_nonce();
 	let pk_bytes = sha256::hash(recipient_addr.as_bytes()).0;

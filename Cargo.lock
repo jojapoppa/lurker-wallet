@@ -1678,6 +1678,7 @@ dependencies = [
  "age",
  "base64 0.9.3",
  "bech32 0.7.3",
+ "bincode",
  "blake2-rfc",
  "bs58",
  "byteorder",

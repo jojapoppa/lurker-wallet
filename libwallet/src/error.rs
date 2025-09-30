@@ -389,4 +389,4 @@ impl From<bech32::Error> for Error {
 }
 
 // Export for use
-pub use Error::*;
+//pub use Error::*;
