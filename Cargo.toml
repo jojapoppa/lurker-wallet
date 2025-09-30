@@ -20,6 +20,7 @@ members = ["api", "config", "controller", "impls", "libwallet", "util"]
 exclude = ["integration"]
 
 [dependencies]
+bincode = "1"
 tokio = { version = "1", features = ["full"] }  # Async runtime, net, io
 sodiumoxide = "0.2.7"  # Pin to latest; drops ^ for exact match to resolve conflict
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }

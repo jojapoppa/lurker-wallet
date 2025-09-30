@@ -51,12 +51,17 @@ use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UdpSocket;
+use tokio::net::UnixStream;
 use tokio::runtime::Runtime;
 
-use yggdrasilctl::{AdminSession, Yggdrasil};
+use yggdrasilctl::Endpoint;
 
 use sodiumoxide::crypto::box_::{self, Nonce, PublicKey as BoxPK, SecretKey as BoxSK};
-use sodiumoxide::utils::hash;
+use sodiumoxide::crypto::hash::sha256;
+
+pub trait SlateSender {
+	fn send(&self, dest: &str, slate: &Slate) -> Result<(), Error>;
+}
 
 #[derive(Debug, Clone)]
 pub struct PaymentInfo {
@@ -1120,16 +1125,12 @@ impl From<OutputFeaturesV4> for OutputFeatures {
 pub struct YggdrasilSlateSender;
 
 impl SlateSender for YggdrasilSlateSender {
-	// Direct trait (defined in this module)
-	fn send(&self, dest: &str, slate: &Slate) -> Result<(), crate::Error> {
-		// Direct Slate; scoped Error
-		let rt = Runtime::new().map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+	fn send(&self, dest: &str, slate: &Slate) -> Result<(), Error> {
+		let rt = Runtime::new().map_err(|e| Error::WalletComms(e.to_string()))?;
 		rt.block_on(async {
 			send_initial_slate_via_yggdrasil(
 				dest,
-				&slate
-					.to_bytes()
-					.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?,
+				&bincode::serialize(slate).map_err(|e| Error::WalletComms(e.to_string()))?,
 			)
 			.await
 		})
@@ -1137,59 +1138,68 @@ impl SlateSender for YggdrasilSlateSender {
 }
 
 async fn send_initial_slate_via_yggdrasil(
-	// Private async helper
 	recipient_addr: &str,
 	slate_bytes: &[u8],
-) -> Result<(), crate::Error> {
+) -> Result<(), Error> {
 	let ipv6 = Ipv6Addr::from_str(recipient_addr)
-		.map_err(|_| WalletErrorKind::WalletComms("Invalid addr".into()))?;
+		.map_err(|_| Error::WalletComms("Invalid addr".into()))?;
 	if !ipv6.is_unique_local() {
-		return Err(WalletErrorKind::WalletComms("Not Yggdrasil addr".into()).into());
+		return Err(Error::WalletComms("Not Yggdrasil addr".into()));
 	}
 	let socket_addr = SocketAddrV6::new(ipv6, 0, 0, 0);
 
-	let ygg = Yggdrasil::connect_default()
+	let socket_path = "/run/yggdrasil.sock";
+	let socket = UnixStream::connect(socket_path)
 		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
-	let admin = ygg
-		.admin_session()
-		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
-	// Bootstrap: Add public peers (hardcode; expand later)
-	let peers = r#"["tcp://203.0.113.1:12345", "tcp://198.51.100.1:12345"]"#; // Replace with real peers
-	admin
-		.execute("peers addPeers", Some(peers))
-		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| Error::WalletComms(e.to_string()))?;
+	let endpoint = match Endpoint::attach(socket).await {
+		Ok(endpoint) => endpoint,
+		Err(e) => {
+			// Handle the error, e.g., log or convert to your Error type
+			println!("Error attaching endpoint: {}", e);
+			return Err(Error::WalletComms(e.to_string()));
+		}
+	};
+
+	// Bootstrap: Add public peers (call add_peer for each; hardcode or load from config)
+	let peers = vec![
+		"tcp://203.0.113.1:12345".to_string(), // Example
+		"tcp://198.51.100.1:12345".to_string(),
+	];
+	for peer_uri in peers {
+		endpoint
+			.add_peer(peer_uri, None)
+			.await
+			.map_err(|e| Error::WalletComms(e.to_string()))?;
+	}
 
 	let socket = UdpSocket::bind("0.0.0.0:0")
 		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| Error::WalletComms(e.to_string()))?;
 	socket
 		.connect(socket_addr)
 		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| Error::WalletComms(e.to_string()))?;
 	let mut stream = socket;
 
 	let nonce = box_::gen_nonce();
-	let pk_bytes = hash::sha256(recipient_addr.as_bytes()).0;
-	let recipient_pk =
-		BoxPK::from_slice(&pk_bytes).ok_or(WalletErrorKind::WalletComms("Bad PK".into()))?;
-	let sender_sk =
-		BoxSK::from_slice(&[0u8; 32]).ok_or(WalletErrorKind::WalletComms("Bad SK".into()))?; // Real: wallet keychain
+	let pk_bytes = sha256::hash(recipient_addr.as_bytes()).0;
+	let recipient_pk = BoxPK::from_slice(&pk_bytes).ok_or(Error::WalletComms("Bad PK".into()))?;
+	let sender_sk = BoxSK::from_slice(&[0u8; 32]).ok_or(Error::WalletComms("Bad SK".into()))?; // Real: derive from wallet
+
 	let encrypted = box_::seal(slate_bytes, &nonce, &recipient_pk, &sender_sk);
 
-	let payload = [&nonce.0[..], &encrypted.0[..]].concat();
+	let payload = [&nonce.0[..], &encrypted[..]].concat();
 	stream
 		.send(&payload)
 		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| Error::WalletComms(e.to_string()))?;
 
 	let mut buf = [0u8; 8192];
 	let n = stream
 		.recv(&mut buf)
 		.await
-		.map_err(|e| WalletErrorKind::WalletComms(e.to_string()))?;
+		.map_err(|e| Error::WalletComms(e.to_string()))?;
 	if n > 24 {
 		let (cipher, recv_nonce) = buf.split_at(n - 24);
 		let decrypted = box_::open(
@@ -1198,7 +1208,7 @@ async fn send_initial_slate_via_yggdrasil(
 			&recipient_pk,
 			&sender_sk,
 		)
-		.map_err(|_| WalletErrorKind::WalletComms("Decrypt fail".into()))?;
+		.map_err(|_| Error::WalletComms("Decrypt fail".into()))?;
 		// Placeholder: Deserialize Slate from decrypted
 	}
 

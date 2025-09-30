@@ -50,6 +50,9 @@ grin_core = "5.3.3"
 grin_keychain = "5.3.3"
 grin_util = "5.3.3"
 grin_store = "5.3.3"
+tokio = { version = "1.47.1", features = ["full"] }
+sodiumoxide = "0.2.7"
+yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", version = "1.2.3", default-features = false, features = ["use_tokio"] }
 
 # For beta release
 

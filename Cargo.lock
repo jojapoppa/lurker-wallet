@@ -242,6 +242,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1514,6 +1523,7 @@ dependencies = [
 name = "grin_wallet"
 version = "5.4.0-alpha.1"
 dependencies = [
+ "bincode",
  "built",
  "clap",
  "easy-jsonrpc-mw",
@@ -1692,11 +1702,14 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.10.9",
+ "sodiumoxide",
  "strum",
  "strum_macros",
  "thiserror 1.0.69",
+ "tokio 1.47.1",
  "uuid",
  "x25519-dalek 0.6.0",
+ "yggdrasilctl",
 ]
 
 [[package]]

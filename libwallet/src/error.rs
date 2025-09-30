@@ -25,51 +25,31 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
-    LibWallet(String),
-    Keychain(String),
-    Transaction(String),
-    WalletComms(String),  // Custom for Yggdrasil/Tor comms errors
-    Secp(String),
-    IO(String),
-    // Add other variants from Grin-wallet if needed
+	LibWallet(String),
+	Keychain(String),
+	Transaction(String),
+	WalletComms(String), // Custom for Yggdrasil/Tor comms errors
+	Secp(String),
+	IO(String),
+	// Add other variants from Grin-wallet if needed
 }
 
 impl fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ErrorKind::LibWallet(ref e) => write!(f, "LibWallet Error: {}", e),
-            ErrorKind::Keychain(ref e) => write!(f, "Keychain Error: {}", e),
-            ErrorKind::Transaction(ref e) => write!(f, "Transaction Error: {}", e),
-            ErrorKind::WalletComms(ref e) => write!(f, "Wallet Comms Error: {}", e),
-            ErrorKind::Secp(ref e) => write!(f, "Secp Error: {}", e),
-            ErrorKind::IO(ref e) => write!(f, "IO Error: {}", e),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			ErrorKind::LibWallet(ref e) => write!(f, "LibWallet Error: {}", e),
+			ErrorKind::Keychain(ref e) => write!(f, "Keychain Error: {}", e),
+			ErrorKind::Transaction(ref e) => write!(f, "Transaction Error: {}", e),
+			ErrorKind::WalletComms(ref e) => write!(f, "Wallet Comms Error: {}", e),
+			ErrorKind::Secp(ref e) => write!(f, "Secp Error: {}", e),
+			ErrorKind::IO(ref e) => write!(f, "IO Error: {}", e),
+		}
+	}
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error(pub ErrorKind);  // Keep the wrapper struct as Error
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Self {
-        Error(kind)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for Error {}
-
-// Export for use
-pub use ErrorKind::*;
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, thiserror::Error, Serialize, Deserialize)]
-pub enum ErrorKind {
+pub enum Error {
 	/// Not enough funds
 	#[error("Not enough funds. Required: {needed_disp:?}, Available: {available_disp:?}")]
 	NotEnoughFunds {
@@ -407,3 +387,6 @@ impl From<bech32::Error> for Error {
 		Error::SlatepackAddress(format!("{}", error))
 	}
 }
+
+// Export for use
+pub use Error::*;
