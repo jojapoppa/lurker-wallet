@@ -28,8 +28,8 @@ use crate::grin_util::secp::pedersen::Commitment;
 use crate::grin_util::secp::Signature;
 use crate::grin_util::{secp, static_secp_instance};
 
-use crate::error::ErrorKind as WalletErrorKind;
-use crate::Error; // Keep single Error from root // Alias your enum to avoid clash with std::io::ErrorKind
+use crate::error::Error;
+use crate::ErrorKind; // Grin's error types
 
 use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::Signature as DalekSignature;
