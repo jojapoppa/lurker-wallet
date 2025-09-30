@@ -5137,7 +5137,7 @@ dependencies = [
 [[package]]
 name = "yggdrasilctl"
 version = "1.2.3"
-source = "git+https://github.com/jojapoppa/yggdrasilctl.git?branch=main#052e9060e1062c0ef0a4c9ab9ba93a3bc7b6db7e"
+source = "git+https://github.com/jojapoppa/yggdrasilctl.git?branch=main#07ff3672475e3859ace23a6723bbb32cd47cf745"
 dependencies = [
  "maybe-async",
  "serde",
@@ -5212,9 +5212,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
+checksum = "b97154e67e32c85465826e8bcc1c59429aaaf107c1e4a9e53c8d8ccd5eff88d0"
 dependencies = [
  "zeroize_derive",
 ]
