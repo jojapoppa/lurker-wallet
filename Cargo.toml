@@ -26,6 +26,7 @@ sodiumoxide = "0.2.7"  # Pin to latest; drops ^ for exact match to resolve confl
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }
 yggdrasil-keys = "0.4"  # Key derivation (note: hyphen in name, underscore in use)
 clap = { version = "2.33", features = ["yaml"] }
+hyper = "0.13"  # Matches grin_api; overrides any ^0.14
 rpassword = "4.0"
 thiserror = "1"
 prettytable-rs = "0.10"
@@ -42,33 +43,11 @@ grin_wallet_controller = { path = "./controller", version = "5.4.0-alpha.1" }
 grin_wallet_config = { path = "./config", version = "5.4.0-alpha.1" }
 grin_wallet_util = { path = "./util", version = "5.4.0-alpha.1" }
 
-
 ##### Grin Imports
 
-# For Release
-grin_core = "5.3.3"
-grin_keychain = "5.3.3"
-grin_util = "5.3.3"
-grin_api = "5.3.3"
-
-# For beta release
-
-# grin_core = { git = "https://github.com/mimblewimble/grin", tag = "v5.2.0-beta.3"}
-# grin_keychain = { git = "https://github.com/mimblewimble/grin", tag = "v5.2.0-beta.3" }
-# grin_util = { git = "https://github.com/mimblewimble/grin", tag = "v5.2.0-beta.3" }
-# grin_api = { git = "https://github.com/mimblewimble/grin", tag = "v5.2.0-beta.3" }
-
-# For bleeding edge
-# grin_core = { git = "https://github.com/mimblewimble/grin", branch = "master" }
-# grin_keychain = { git = "https://github.com/mimblewimble/grin", branch = "master" }
-# grin_util = { git = "https://github.com/mimblewimble/grin", branch = "master" }
-# grin_api = { git = "https://github.com/mimblewimble/grin", branch = "master" }
-
-# For local testing
-# grin_core = { path = "../grin/core"}
-# grin_keychain = { path = "../grin/keychain"}
-# grin_util = { path = "../grin/util"}
-# grin_api = { path = "../grin/api"}
+grin_core = { path = "../lurker/core" }
+grin_keychain = { path = "../lurker/keychain" }
+grin_util = { path = "../lurker/util" }
 
 ###### 
 
