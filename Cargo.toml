@@ -26,7 +26,7 @@ sodiumoxide = "0.2.7"  # Pin to latest; drops ^ for exact match to resolve confl
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", default-features = false, features = ["use_tokio"] }
 yggdrasil-keys = "0.4"  # Key derivation (note: hyphen in name, underscore in use)
 clap = { version = "2.33", features = ["yaml"] }
-hyper = "0.13"  # Matches grin_api; overrides any ^0.14
+hyper = { version = "0.14", features = ["full"] }
 rpassword = "4.0"
 thiserror = "1"
 prettytable-rs = "0.10"
