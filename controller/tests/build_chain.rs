@@ -16,11 +16,11 @@
 
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
-extern crate grin_wallet_libwallet as libwallet;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
+extern crate lurker_wallet_libwallet as libwallet;
 
-use grin_core as core;
+use lurker_core as core;
 
 use self::libwallet::{InitTxArgs, Slate};
 use impls::test_framework::{self, LocalWalletClient};

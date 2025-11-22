@@ -19,7 +19,7 @@ use crate::libwallet::{
 	AcctPathMapping, Error, OutputCommitMapping, OutputStatus, TxLogEntry, ViewWallet, WalletInfo,
 };
 use crate::util::ToHex;
-use grin_wallet_util::OnionV3Address;
+use lurker_wallet_util::OnionV3Address;
 use prettytable;
 use std::io::prelude::Write;
 use term;

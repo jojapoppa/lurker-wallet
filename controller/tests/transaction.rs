@@ -14,11 +14,11 @@
 //! tests for transactions building within core::libtx
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
-extern crate grin_wallet_libwallet as libwallet;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
+extern crate lurker_wallet_libwallet as libwallet;
 
-use grin_core as core;
+use lurker_core as core;
 
 use self::core::core::transaction;
 use self::core::global;
@@ -442,7 +442,7 @@ fn tx_rollback(test_dir: &'static str) -> Result<(), libwallet::Error> {
 	// few values to keep things shorter
 	let reward = core::consensus::REWARD;
 	let cm = global::coinbase_maturity(); // assume all testing precedes soft fork height
-									  // mine a few blocks
+									   // mine a few blocks
 	let _ = test_framework::award_blocks_to_wallet(&chain, wallet1.clone(), mask1, 5, false);
 
 	let amount = 30_000_000_000;

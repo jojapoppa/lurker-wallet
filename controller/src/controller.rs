@@ -24,12 +24,12 @@ use crate::libwallet::{
 use crate::util::secp::key::SecretKey;
 use crate::util::{from_hex, static_secp_instance, to_base64, Mutex};
 use futures::channel::oneshot;
-use grin_wallet_api::JsonId;
-use grin_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
-use grin_wallet_util::OnionV3Address;
 use hyper::body;
 use hyper::header::HeaderValue;
 use hyper::{Body, Request, Response, StatusCode};
+use lurker_wallet_api::JsonId;
+use lurker_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
+use lurker_wallet_util::OnionV3Address;
 use qr_code::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json;

@@ -14,17 +14,17 @@
 //! tests differing accounts in the same wallet
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
 
-use grin_core as core;
-use grin_keychain as keychain;
+use lurker_core as core;
+use lurker_keychain as keychain;
 
 use self::core::global;
 use self::keychain::{ExtKeychain, Keychain};
-use grin_wallet_libwallet as libwallet;
 use impls::test_framework::{self, LocalWalletClient};
 use libwallet::InitTxArgs;
+use lurker_wallet_libwallet as libwallet;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;

@@ -14,16 +14,16 @@
 //! Test a wallet sending to self, then creation of comsig request
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
 
-use grin_core as core;
-use grin_util as util;
-use grin_util::secp::key::SecretKey;
+use lurker_core as core;
+use lurker_util as util;
+use lurker_util::secp::key::SecretKey;
 
-use grin_wallet_libwallet as libwallet;
 use impls::test_framework::{self, LocalWalletClient};
 use libwallet::{mwixnet::MixnetReqCreationParams, InitTxArgs};
+use lurker_wallet_libwallet as libwallet;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
@@ -144,13 +144,13 @@ fn mwixnet_test_impl(test_dir: &'static str) -> Result<(), libwallet::Error> {
 		let server_pubkey_str_3 =
 			"b58ece97d60e71bb7e53218400b0d67bfe6a3cb7d3b4a67a44f8fb7c525cbca5";
 		let server_key_1 =
-			SecretKey::from_slice(&secp, &grin_util::from_hex(&server_pubkey_str_1).unwrap())
+			SecretKey::from_slice(&secp, &lurker_util::from_hex(&server_pubkey_str_1).unwrap())
 				.unwrap();
 		let server_key_2 =
-			SecretKey::from_slice(&secp, &grin_util::from_hex(&server_pubkey_str_2).unwrap())
+			SecretKey::from_slice(&secp, &lurker_util::from_hex(&server_pubkey_str_2).unwrap())
 				.unwrap();
 		let server_key_3 =
-			SecretKey::from_slice(&secp, &grin_util::from_hex(&server_pubkey_str_3).unwrap())
+			SecretKey::from_slice(&secp, &lurker_util::from_hex(&server_pubkey_str_3).unwrap())
 				.unwrap();
 		let params = MixnetReqCreationParams {
 			server_keys: vec![server_key_1, server_key_2, server_key_3],

@@ -14,13 +14,13 @@
 //! tests ttl_cutoff blocks
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
-extern crate grin_wallet_util;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
+extern crate lurker_wallet_util;
 
-use grin_wallet_libwallet as libwallet;
 use impls::test_framework::{self, LocalWalletClient};
 use libwallet::{InitTxArgs, Slate, TxLogEntryType};
+use lurker_wallet_libwallet as libwallet;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;

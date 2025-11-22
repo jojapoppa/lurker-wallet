@@ -13,17 +13,17 @@
 
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
-extern crate grin_wallet_util;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
+extern crate lurker_wallet_util;
 
-use grin_core::core::OutputFeatures;
-use grin_keychain::{
+use impls::test_framework::LocalWalletClient;
+use lurker_core::core::OutputFeatures;
+use lurker_keychain::{
 	mnemonic, BlindingFactor, ExtKeychain, ExtKeychainPath, Keychain, SwitchCommitmentType,
 };
-use grin_util::{secp, ZeroingString};
-use grin_wallet_libwallet as libwallet;
-use impls::test_framework::LocalWalletClient;
+use lurker_util::{secp, ZeroingString};
+use lurker_wallet_libwallet as libwallet;
 use rand::{thread_rng, Rng};
 use std::sync::atomic::Ordering;
 use std::thread;

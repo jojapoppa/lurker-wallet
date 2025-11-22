@@ -382,7 +382,7 @@ where
 					let slate = api.init_send_tx(m, init_args)?;
 					Ok((strategy, slate.amount, slate.fee_fields))
 				})
-				.collect::<Result<Vec<_>, grin_wallet_libwallet::Error>>()?;
+				.collect::<Result<Vec<_>, lurker_wallet_libwallet::Error>>()?;
 			display::estimate(amount, strategies, dark_scheme);
 			return Ok(());
 		} else {

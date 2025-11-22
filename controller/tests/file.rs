@@ -14,11 +14,11 @@
 //! Test a wallet file send/recieve
 #[macro_use]
 extern crate log;
-extern crate grin_wallet_controller as wallet;
-extern crate grin_wallet_impls as impls;
+extern crate lurker_wallet_controller as wallet;
+extern crate lurker_wallet_impls as impls;
 
-use grin_core as core;
-use grin_wallet_libwallet as libwallet;
+use lurker_core as core;
+use lurker_wallet_libwallet as libwallet;
 
 use impls::test_framework::{self, LocalWalletClient};
 use impls::{PathToSlate, SlateGetter as _, SlatePutter as _};
@@ -26,7 +26,7 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
-use grin_wallet_libwallet::{InitTxArgs, IssueInvoiceTxArgs, Slate};
+use lurker_wallet_libwallet::{InitTxArgs, IssueInvoiceTxArgs, Slate};
 
 #[macro_use]
 mod common;

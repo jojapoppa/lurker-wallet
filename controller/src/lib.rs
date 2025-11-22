@@ -21,14 +21,14 @@ extern crate prettytable;
 extern crate log;
 #[macro_use]
 extern crate lazy_static;
-use grin_api as api;
-use grin_core as core;
-use grin_keychain as keychain;
-use grin_util as util;
-use grin_wallet_api as apiwallet;
-use grin_wallet_config as config;
-use grin_wallet_impls as impls;
-use grin_wallet_libwallet as libwallet;
+use lurker_api as api;
+use lurker_core as core;
+use lurker_keychain as keychain;
+use lurker_util as util;
+use lurker_wallet_api as apiwallet;
+use lurker_wallet_config as config;
+use lurker_wallet_impls as impls;
+use lurker_wallet_libwallet as libwallet;
 
 pub mod command;
 pub mod controller;
