@@ -17,18 +17,18 @@
 use uuid::Uuid;
 
 use crate::api_impl::foreign::finalize_tx as foreign_finalize;
-use crate::grin_core::core::hash::Hashed;
-use crate::grin_core::core::{FeeFields, Output, OutputFeatures, Transaction};
-use crate::grin_core::libtx::proof;
-use crate::grin_keychain::ViewKey;
-use crate::grin_util::secp::{key::SecretKey, pedersen::Commitment};
-use crate::grin_util::Mutex;
-use crate::grin_util::ToHex;
+use crate::lurker_core::core::hash::Hashed;
+use crate::lurker_core::core::{FeeFields, Output, OutputFeatures, Transaction};
+use crate::lurker_core::libtx::proof;
+use crate::lurker_keychain::ViewKey;
+use crate::lurker_util::secp::{key::SecretKey, pedersen::Commitment};
+use crate::lurker_util::Mutex;
+use crate::lurker_util::ToHex;
 use crate::util::{OnionV3Address, OnionV3AddressError};
 
 use crate::api_impl::owner_updater::StatusMessage;
-use crate::grin_keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
 use crate::internal::{keys, scan, selection, tx, updater};
+use crate::lurker_keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
 use crate::slate::{PaymentInfo, Slate, SlateState};
 use crate::types::{AcctPathMapping, NodeClient, TxLogEntry, WalletBackend, WalletInfo};
 use crate::Error;
@@ -1418,7 +1418,7 @@ where
 		)));
 	}
 
-	let fee = grin_core::libtx::tx_fee(1, 1, 1);
+	let fee = lurker_core::libtx::tx_fee(1, 1, 1);
 	let new_amount = amount - (fee * server_pubkeys.len() as u64);
 	let new_output = build_output(w, keychain_mask, OutputFeatures::Plain, new_amount)?;
 	let secp = keychain.secp();

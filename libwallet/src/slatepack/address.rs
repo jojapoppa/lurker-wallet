@@ -20,9 +20,9 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use x25519_dalek::PublicKey as xDalekPublicKey;
 
-use crate::grin_core::global;
-use crate::grin_core::ser::{self, Readable, Reader, Writeable, Writer};
-use crate::grin_util::secp::key::SecretKey;
+use crate::lurker_core::global;
+use crate::lurker_core::ser::{self, Readable, Reader, Writeable, Writer};
+use crate::lurker_util::secp::key::SecretKey;
 use crate::util::OnionV3Address;
 use crate::Error;
 

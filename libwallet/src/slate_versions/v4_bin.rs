@@ -14,13 +14,13 @@
 
 //! Wraps a V4 Slate into a V4 Binary slate
 
-use crate::grin_core::core::transaction::{FeeFields, OutputFeatures};
-use crate::grin_core::ser as grin_ser;
-use crate::grin_core::ser::{Readable, Reader, Writeable, Writer};
-use crate::grin_keychain::BlindingFactor;
-use crate::grin_util::secp::key::PublicKey;
-use crate::grin_util::secp::pedersen::{Commitment, RangeProof};
-use crate::grin_util::secp::Signature;
+use crate::lurker_core::core::transaction::{FeeFields, OutputFeatures};
+use crate::lurker_core::ser as lurker_ser;
+use crate::lurker_core::ser::{Readable, Reader, Writeable, Writer};
+use crate::lurker_keychain::BlindingFactor;
+use crate::lurker_util::secp::key::PublicKey;
+use crate::lurker_util::secp::pedersen::{Commitment, RangeProof};
+use crate::lurker_util::secp::Signature;
 use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::Signature as DalekSignature;
 use std::convert::TryFrom;
@@ -32,7 +32,7 @@ use crate::slate_versions::v4::{
 };
 
 impl Writeable for SlateStateV4 {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		let b = match self {
 			SlateStateV4::Unknown => 0,
 			SlateStateV4::Standard1 => 1,
@@ -47,7 +47,7 @@ impl Writeable for SlateStateV4 {
 }
 
 impl Readable for SlateStateV4 {
-	fn read<R: Reader>(reader: &mut R) -> Result<SlateStateV4, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<SlateStateV4, lurker_ser::Error> {
 		let b = reader.read_u8()?;
 		let sta = match b {
 			0 => SlateStateV4::Unknown,
@@ -67,13 +67,13 @@ impl Readable for SlateStateV4 {
 struct UuidWrap(Uuid);
 
 impl Writeable for UuidWrap {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		writer.write_fixed_bytes(&self.0.as_bytes())
 	}
 }
 
 impl Readable for UuidWrap {
-	fn read<R: Reader>(reader: &mut R) -> Result<UuidWrap, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<UuidWrap, lurker_ser::Error> {
 		let bytes = reader.read_fixed_bytes(16)?;
 		let mut b = [0u8; 16];
 		b.copy_from_slice(&bytes[0..16]);
@@ -96,7 +96,7 @@ struct SlateOptFields {
 }
 
 impl Writeable for SlateOptFields {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		// Status byte, bits determing which optional fields are serialized
 		// 0 0 0 1  1 1 1 1
 		//       t  f f a n
@@ -138,7 +138,7 @@ impl Writeable for SlateOptFields {
 }
 
 impl Readable for SlateOptFields {
-	fn read<R: Reader>(reader: &mut R) -> Result<SlateOptFields, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<SlateOptFields, lurker_ser::Error> {
 		let status = reader.read_u8()?;
 		let num_parts = if status & 0x01 > 0 {
 			reader.read_u8()?
@@ -179,7 +179,7 @@ struct SigsWrap(Vec<ParticipantDataV4>);
 struct SigsWrapRef<'a>(&'a Vec<ParticipantDataV4>);
 
 impl<'a> Writeable for SigsWrapRef<'a> {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		writer.write_u8(self.0.len() as u8)?;
 		for s in self.0.iter() {
 			//0 means part sig is not yet included
@@ -200,7 +200,7 @@ impl<'a> Writeable for SigsWrapRef<'a> {
 }
 
 impl Readable for SigsWrap {
-	fn read<R: Reader>(reader: &mut R) -> Result<SigsWrap, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<SigsWrap, lurker_ser::Error> {
 		let sigs_len = reader.read_u8()?;
 		let sigs = {
 			let mut ret = vec![];
@@ -239,7 +239,7 @@ struct SlateOptStructs {
 }
 
 impl<'a> Writeable for SlateOptStructsRef<'a> {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		// Status byte, bits determing which optional structs are serialized
 		// 0 0 0 0  0 0 1 1
 		//              p c
@@ -262,7 +262,7 @@ impl<'a> Writeable for SlateOptStructsRef<'a> {
 }
 
 impl Readable for SlateOptStructs {
-	fn read<R: Reader>(reader: &mut R) -> Result<SlateOptStructs, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<SlateOptStructs, lurker_ser::Error> {
 		let status = reader.read_u8()?;
 		let coms = if status & 0x01 > 0 {
 			Some(ComsWrap::read(reader)?.0)
@@ -282,7 +282,7 @@ struct ComsWrap(Vec<CommitsV4>);
 struct ComsWrapRef<'a>(&'a Vec<CommitsV4>);
 
 impl<'a> Writeable for ComsWrapRef<'a> {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		writer.write_u16(self.0.len() as u16)?;
 		for o in self.0.iter() {
 			//0 means input
@@ -303,7 +303,7 @@ impl<'a> Writeable for ComsWrapRef<'a> {
 }
 
 impl Readable for ComsWrap {
-	fn read<R: Reader>(reader: &mut R) -> Result<ComsWrap, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<ComsWrap, lurker_ser::Error> {
 		let coms_len = reader.read_u16()?;
 		let coms = {
 			let mut ret = vec![];
@@ -329,7 +329,7 @@ struct ProofWrap(PaymentInfoV4);
 struct ProofWrapRef<'a>(&'a PaymentInfoV4);
 
 impl<'a> Writeable for ProofWrapRef<'a> {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		writer.write_fixed_bytes(self.0.saddr.to_bytes())?;
 		writer.write_fixed_bytes(self.0.raddr.to_bytes())?;
 		match self.0.rsig {
@@ -344,7 +344,7 @@ impl<'a> Writeable for ProofWrapRef<'a> {
 }
 
 impl Readable for ProofWrap {
-	fn read<R: Reader>(reader: &mut R) -> Result<ProofWrap, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<ProofWrap, lurker_ser::Error> {
 		let saddr = DalekPublicKey::from_bytes(&reader.read_fixed_bytes(32)?).unwrap();
 		let raddr = DalekPublicKey::from_bytes(&reader.read_fixed_bytes(32)?).unwrap();
 		let rsig = match reader.read_u8()? {
@@ -376,7 +376,7 @@ impl serde::Serialize for SlateV4Bin {
 		S: serde::Serializer,
 	{
 		let mut vec = vec![];
-		grin_ser::serialize(&mut vec, grin_ser::ProtocolVersion(4), self)
+		lurker_ser::serialize(&mut vec, lurker_ser::ProtocolVersion(4), self)
 			.map_err(|err| serde::ser::Error::custom(err.to_string()))?;
 		serializer.serialize_bytes(&vec)
 	}
@@ -401,10 +401,10 @@ impl<'de> serde::Deserialize<'de> for SlateV4Bin {
 				E: serde::de::Error,
 			{
 				let mut reader = std::io::Cursor::new(value.to_vec());
-				let s = grin_ser::deserialize(
+				let s = lurker_ser::deserialize(
 					&mut reader,
-					grin_ser::ProtocolVersion(4),
-					grin_ser::DeserializationMode::default(),
+					lurker_ser::ProtocolVersion(4),
+					lurker_ser::DeserializationMode::default(),
 				)
 				.map_err(|err| serde::de::Error::custom(err.to_string()))?;
 				Ok(s)
@@ -415,7 +415,7 @@ impl<'de> serde::Deserialize<'de> for SlateV4Bin {
 }
 
 impl Writeable for SlateV4Bin {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), grin_ser::Error> {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), lurker_ser::Error> {
 		let v4 = &self.0;
 		writer.write_u16(v4.ver.version)?;
 		writer.write_u16(v4.ver.block_header_version)?;
@@ -449,7 +449,7 @@ impl Writeable for SlateV4Bin {
 }
 
 impl Readable for SlateV4Bin {
-	fn read<R: Reader>(reader: &mut R) -> Result<SlateV4Bin, grin_ser::Error> {
+	fn read<R: Reader>(reader: &mut R) -> Result<SlateV4Bin, lurker_ser::Error> {
 		let ver = VersionCompatInfoV4 {
 			version: reader.read_u16()?,
 			block_header_version: reader.read_u16()?,
@@ -490,11 +490,11 @@ impl Readable for SlateV4Bin {
 
 #[test]
 fn slate_v4_serialize_deserialize() {
-	use crate::grin_util::from_hex;
-	use crate::grin_util::secp::key::PublicKey;
+	use crate::lurker_util::from_hex;
+	use crate::lurker_util::secp::key::PublicKey;
 	use crate::Slate;
-	use grin_core::global::{set_local_chain_type, ChainTypes};
-	use grin_keychain::{ExtKeychain, Keychain, SwitchCommitmentType};
+	use lurker_core::global::{set_local_chain_type, ChainTypes};
+	use lurker_keychain::{ExtKeychain, Keychain, SwitchCommitmentType};
 	set_local_chain_type(ChainTypes::Mainnet);
 	let slate = Slate::blank(1, false);
 	let mut v4 = SlateV4::from(slate);
@@ -549,8 +549,8 @@ fn slate_v4_serialize_deserialize() {
 
 	let v4_bin = SlateV4Bin(v4);
 	let mut vec = Vec::new();
-	let _ = grin_ser::serialize_default(&mut vec, &v4_bin).expect("serialization failed");
-	let b4_bin_2: SlateV4Bin = grin_ser::deserialize_default(&mut &vec[..]).unwrap();
+	let _ = lurker_ser::serialize_default(&mut vec, &v4_bin).expect("serialization failed");
+	let b4_bin_2: SlateV4Bin = lurker_ser::deserialize_default(&mut &vec[..]).unwrap();
 	let v4_2 = b4_bin_2.0.clone();
 	assert_eq!(v4_1.ver, v4_2.ver);
 	assert_eq!(v4_1.id, v4_2.id);
@@ -579,8 +579,8 @@ fn slate_v4_serialize_deserialize() {
 	let v4_1 = v4.clone();
 	let v4_bin = SlateV4Bin(v4);
 	let mut vec = Vec::new();
-	let _ = grin_ser::serialize_default(&mut vec, &v4_bin).expect("serialization failed");
-	let b4_bin_2: SlateV4Bin = grin_ser::deserialize_default(&mut &vec[..]).unwrap();
+	let _ = lurker_ser::serialize_default(&mut vec, &v4_bin).expect("serialization failed");
+	let b4_bin_2: SlateV4Bin = lurker_ser::deserialize_default(&mut &vec[..]).unwrap();
 	let v4_2 = b4_bin_2.0.clone();
 	assert_eq!(v4_1.ver, v4_2.ver);
 	assert_eq!(v4_1.id, v4_2.id);

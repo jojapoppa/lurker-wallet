@@ -15,18 +15,18 @@
 //! Functions for building partial transactions to be passed
 //! around during an interactive wallet exchange
 
-use crate::grin_core::core::amount_to_hr_string;
-use crate::grin_core::core::transaction::{
+use crate::lurker_core::core::amount_to_hr_string;
+use crate::lurker_core::core::transaction::{
 	FeeFields, Input, Inputs, KernelFeatures, NRDRelativeHeight, Output, OutputFeatures,
 	Transaction, TxKernel, Weighting,
 };
-use crate::grin_core::libtx::{aggsig, build, proof::ProofBuild, tx_fee};
-use crate::grin_core::map_vec;
-use crate::grin_keychain::{BlindSum, BlindingFactor, Keychain, SwitchCommitmentType};
-use crate::grin_util::secp::key::{PublicKey, SecretKey};
-use crate::grin_util::secp::pedersen::Commitment;
-use crate::grin_util::secp::Signature;
-use crate::grin_util::{secp, static_secp_instance};
+use crate::lurker_core::libtx::{aggsig, build, proof::ProofBuild, tx_fee};
+use crate::lurker_core::map_vec;
+use crate::lurker_keychain::{BlindSum, BlindingFactor, Keychain, SwitchCommitmentType};
+use crate::lurker_util::secp::key::{PublicKey, SecretKey};
+use crate::lurker_util::secp::pedersen::Commitment;
+use crate::lurker_util::secp::Signature;
+use crate::lurker_util::{secp, static_secp_instance};
 
 use crate::error::Error;
 use crate::ErrorKind; // Grin's error types

@@ -16,16 +16,16 @@
 
 use crate::address;
 use crate::error::Error;
-use crate::grin_core::core::amount_to_hr_string;
-use crate::grin_core::libtx::{
+use crate::internal::keys;
+use crate::lurker_core::core::amount_to_hr_string;
+use crate::lurker_core::libtx::{
 	build,
 	proof::{ProofBuild, ProofBuilder},
 	tx_fee,
 };
-use crate::grin_keychain::{Identifier, Keychain};
-use crate::grin_util::secp::key::SecretKey;
-use crate::grin_util::secp::pedersen;
-use crate::internal::keys;
+use crate::lurker_keychain::{Identifier, Keychain};
+use crate::lurker_util::secp::key::SecretKey;
+use crate::lurker_util::secp::pedersen;
 use crate::slate::Slate;
 use crate::types::*;
 use crate::util::OnionV3Address;

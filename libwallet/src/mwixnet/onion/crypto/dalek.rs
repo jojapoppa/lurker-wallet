@@ -14,11 +14,11 @@
 
 //! Dalek key wrapper for mwixnet primitives
 
-use grin_util::secp::key::SecretKey;
+use lurker_util::secp::key::SecretKey;
 
 use ed25519_dalek::{PublicKey, Signature, Verifier};
-use grin_core::ser::{self, Readable, Reader, Writeable, Writer};
-use grin_util::ToHex;
+use lurker_core::ser::{self, Readable, Reader, Writeable, Writer};
+use lurker_util::ToHex;
 use thiserror::Error;
 
 /// Error types for Dalek structures and logic
@@ -47,7 +47,7 @@ impl DalekPublicKey {
 
 	/// Convert hex string to DalekPublicKey.
 	pub fn from_hex(hex: &str) -> Result<Self, DalekError> {
-		let bytes = grin_util::from_hex(hex)
+		let bytes = lurker_util::from_hex(hex)
 			.map_err(|_| DalekError::HexError(format!("failed to decode {}", hex)))?;
 		let pk = PublicKey::from_bytes(bytes.as_ref())
 			.map_err(|_| DalekError::HexError(format!("failed to decode {}", hex)))?;
@@ -72,7 +72,7 @@ impl AsRef<PublicKey> for DalekPublicKey {
 /// Serializes an Option<DalekPublicKey> to and from hex
 pub mod option_dalek_pubkey_serde {
 	use super::DalekPublicKey;
-	use grin_util::ToHex;
+	use lurker_util::ToHex;
 	use serde::de::Error;
 	use serde::{Deserialize, Deserializer, Serializer};
 
@@ -123,7 +123,7 @@ pub struct DalekSignature(Signature);
 impl DalekSignature {
 	/// Convert hex string to DalekSignature.
 	pub fn from_hex(hex: &str) -> Result<Self, DalekError> {
-		let bytes = grin_util::from_hex(hex)
+		let bytes = lurker_util::from_hex(hex)
 			.map_err(|_| DalekError::HexError(format!("failed to decode {}", hex)))?;
 		let sig = Signature::from_bytes(bytes.as_ref())
 			.map_err(|_| DalekError::HexError(format!("failed to decode {}", hex)))?;
@@ -148,7 +148,7 @@ impl AsRef<Signature> for DalekSignature {
 #[cfg(test)]
 pub mod dalek_sig_serde {
 	use super::DalekSignature;
-	use grin_util::ToHex;
+	use lurker_util::ToHex;
 	use serde::de::Error;
 	use serde::{Deserialize, Deserializer, Serializer};
 
@@ -188,8 +188,8 @@ pub fn sign(sk: &SecretKey, message: &[u8]) -> Result<DalekSignature, DalekError
 mod tests {
 	use super::*;
 	use crate::mwixnet::onion::test_util::rand_keypair;
-	use grin_core::ser::{self, ProtocolVersion};
-	use grin_util::ToHex;
+	use lurker_core::ser::{self, ProtocolVersion};
+	use lurker_util::ToHex;
 	use rand::Rng;
 	use serde::{Deserialize, Serialize};
 	use serde_json::Value;

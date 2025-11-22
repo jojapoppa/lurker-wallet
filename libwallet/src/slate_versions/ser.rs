@@ -36,8 +36,8 @@ where
 
 /// Serializes an Option<secp::Signature> to and from hex
 pub mod option_rangeproof_hex {
-	use crate::grin_util::secp::pedersen::RangeProof;
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::secp::pedersen::RangeProof;
+	use crate::lurker_util::{from_hex, ToHex};
 	use serde::de::{Error, IntoDeserializer};
 	use serde::{Deserialize, Deserializer, Serializer};
 
@@ -130,7 +130,7 @@ pub mod ov3_serde {
 
 /// Serializes an ed25519 PublicKey to and from hex
 pub mod dalek_seckey_serde {
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 	use ed25519_dalek::SecretKey as DalekSecretKey;
 	use serde::{Deserialize, Deserializer, Serializer};
 
@@ -158,7 +158,7 @@ pub mod dalek_seckey_serde {
 
 /// Serializes an ed25519 PublicKey to and from hex
 pub mod dalek_pubkey_serde {
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 	use ed25519_dalek::PublicKey as DalekPublicKey;
 	use serde::{Deserialize, Deserializer, Serializer};
 
@@ -186,7 +186,7 @@ pub mod dalek_pubkey_serde {
 
 /// Serializes an x25519 PublicKey to and from hex
 pub mod dalek_xpubkey_serde {
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 	use serde::{Deserialize, Deserializer, Serializer};
 	use x25519_dalek::PublicKey as xDalekPublicKey;
 
@@ -291,7 +291,7 @@ pub mod option_dalek_pubkey_serde {
 	use serde::de::Error;
 	use serde::{Deserialize, Deserializer, Serializer};
 
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 
 	///
 	pub fn serialize<S>(key: &Option<DalekPublicKey>, serializer: S) -> Result<S::Ok, S::Error>
@@ -330,7 +330,7 @@ pub mod option_xdalek_pubkey_serde {
 	use serde::{Deserialize, Deserializer, Serializer};
 	use x25519_dalek::PublicKey as xDalekPublicKey;
 
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 
 	///
 	pub fn serialize<S>(key: &Option<xDalekPublicKey>, serializer: S) -> Result<S::Ok, S::Error>
@@ -368,7 +368,7 @@ pub mod dalek_sig_serde {
 	use serde::{Deserialize, Deserializer, Serializer};
 	use std::convert::TryFrom;
 
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 
 	///
 	pub fn serialize<S>(sig: &DalekSignature, serializer: S) -> Result<S::Ok, S::Error>
@@ -400,7 +400,7 @@ pub mod option_dalek_sig_serde {
 	use serde::{Deserialize, Deserializer, Serializer};
 	use std::convert::TryFrom;
 
-	use crate::grin_util::{from_hex, ToHex};
+	use crate::lurker_util::{from_hex, ToHex};
 
 	///
 	pub fn serialize<S>(sig: &Option<DalekSignature>, serializer: S) -> Result<S::Ok, S::Error>
@@ -596,7 +596,7 @@ mod test {
 	use super::*;
 	use rand::rngs::mock::StepRng;
 
-	use crate::grin_util::{secp, static_secp_instance};
+	use crate::lurker_util::{secp, static_secp_instance};
 	use ed25519_dalek::Keypair;
 	use ed25519_dalek::PublicKey as DalekPublicKey;
 	use ed25519_dalek::SecretKey as DalekSecretKey;

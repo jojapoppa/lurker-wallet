@@ -16,8 +16,8 @@
 //! Should rexport all needed types here
 
 use super::onion::comsig_serde;
-use grin_core::libtx::secp_ser::string_or_u64;
-use grin_util::secp::key::SecretKey;
+use lurker_core::libtx::secp_ser::string_or_u64;
+use lurker_util::secp::key::SecretKey;
 use serde::{Deserialize, Serialize};
 
 pub use super::onion::{onion::Onion, ComSignature, Hop};

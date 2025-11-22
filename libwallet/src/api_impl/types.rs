@@ -14,10 +14,10 @@
 
 //! Types specific to the wallet api, mostly argument serialization
 
-use crate::grin_core::core::Output;
-use crate::grin_core::libtx::secp_ser;
-use crate::grin_keychain::{BlindingFactor, Identifier};
-use crate::grin_util::secp::pedersen;
+use crate::lurker_core::core::Output;
+use crate::lurker_core::libtx::secp_ser;
+use crate::lurker_keychain::{BlindingFactor, Identifier};
+use crate::lurker_util::secp::pedersen;
 use crate::slate_versions::ser as dalek_ser;
 use crate::slate_versions::SlateVersion;
 use crate::types::OutputData;
@@ -38,7 +38,7 @@ pub struct Amount(#[serde(with = "secp_ser::string_or_u64")] pub u64);
 pub struct InitTxArgs {
 	/// The human readable account name from which to draw outputs
 	/// for the transaction, overriding whatever the active account is as set via the
-	/// [`set_active_account`](../grin_wallet_api/owner/struct.Owner.html#method.set_active_account) method.
+	/// [`set_active_account`](../lurker_wallet_api/owner/struct.Owner.html#method.set_active_account) method.
 	pub src_acct_name: Option<String>,
 	#[serde(with = "secp_ser::string_or_u64")]
 	/// The amount to send, in nanogrins. (`1 G = 1_000_000_000nG`)
@@ -130,7 +130,7 @@ impl Default for InitTxArgs {
 pub struct IssueInvoiceTxArgs {
 	/// The human readable account name to which the received funds should be added
 	/// overriding whatever the active account is as set via the
-	/// [`set_active_account`](../grin_wallet_api/owner/struct.Owner.html#method.set_active_account) method.
+	/// [`set_active_account`](../lurker_wallet_api/owner/struct.Owner.html#method.set_active_account) method.
 	pub dest_acct_name: Option<String>,
 	/// The invoice amount in nanogrins. (`1 G = 1_000_000_000nG`)
 	#[serde(with = "secp_ser::string_or_u64")]

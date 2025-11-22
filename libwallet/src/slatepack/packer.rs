@@ -22,7 +22,7 @@ use crate::{
 	VersionedBinSlate, VersionedSlate,
 };
 
-use grin_wallet_util::byte_ser;
+use lurker_wallet_util::byte_ser;
 
 use ed25519_dalek::SecretKey as edSecretKey;
 

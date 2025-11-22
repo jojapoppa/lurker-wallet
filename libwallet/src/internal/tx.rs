@@ -18,13 +18,13 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
 use uuid::Uuid;
 
-use crate::grin_core::consensus::valid_header_version;
-use crate::grin_core::core::HeaderVersion;
-use crate::grin_keychain::{Identifier, Keychain};
-use crate::grin_util::secp::key::SecretKey;
-use crate::grin_util::secp::pedersen;
-use crate::grin_util::Mutex;
 use crate::internal::{selection, updater};
+use crate::lurker_core::consensus::valid_header_version;
+use crate::lurker_core::core::HeaderVersion;
+use crate::lurker_keychain::{Identifier, Keychain};
+use crate::lurker_util::secp::key::SecretKey;
+use crate::lurker_util::secp::pedersen;
+use crate::lurker_util::Mutex;
 use crate::slate::Slate;
 use crate::types::{Context, NodeClient, StoredProofInfo, TxLogEntryType, WalletBackend};
 use crate::util::OnionV3Address;
@@ -35,7 +35,7 @@ use ed25519_dalek::PublicKey as DalekPublicKey;
 use ed25519_dalek::SecretKey as DalekSecretKey;
 use ed25519_dalek::Signature as DalekSignature;
 use ed25519_dalek::{Signer, Verifier};
-use grin_core::core::FeeFields;
+use lurker_core::core::FeeFields;
 
 // static for incrementing test UUIDs
 lazy_static! {
@@ -598,12 +598,12 @@ mod test {
 	use super::*;
 	use rand::rngs::mock::StepRng;
 
-	use crate::grin_core::core::{FeeFields, KernelFeatures};
-	use crate::grin_core::libtx::{build, ProofBuilder};
-	use crate::grin_keychain::{
+	use crate::lurker_core::core::{FeeFields, KernelFeatures};
+	use crate::lurker_core::libtx::{build, ProofBuilder};
+	use crate::lurker_keychain::{
 		BlindSum, BlindingFactor, ExtKeychain, ExtKeychainPath, Keychain, SwitchCommitmentType,
 	};
-	use crate::grin_util::{secp, static_secp_instance};
+	use crate::lurker_util::{secp, static_secp_instance};
 
 	#[test]
 	// demonstrate that input.commitment == referenced output.commitment

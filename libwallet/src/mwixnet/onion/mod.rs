@@ -23,8 +23,8 @@ pub use crypto::{
 };
 
 use chacha20::cipher::StreamCipher;
-use grin_core::core::FeeFields;
-use grin_util::secp::{
+use lurker_core::core::FeeFields;
+use lurker_util::secp::{
 	pedersen::{Commitment, RangeProof},
 	SecretKey,
 };
@@ -125,9 +125,9 @@ pub mod test_util {
 	use crypto::dalek::DalekPublicKey;
 	use crypto::secp;
 
-	use grin_core::core::hash::Hash;
-	use grin_util::secp::Secp256k1;
-	use grin_util::ToHex;
+	use lurker_core::core::hash::Hash;
+	use lurker_util::secp::Secp256k1;
+	use lurker_util::ToHex;
 	use rand::{thread_rng, RngCore};
 
 	pub fn rand_onion() -> Onion {

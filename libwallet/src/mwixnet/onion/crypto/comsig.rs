@@ -14,13 +14,13 @@
 
 //! Comsig modules for mxmixnet
 
-use grin_util::secp::{
+use lurker_util::secp::{
 	self as secp256k1zkp, pedersen::Commitment, rand::thread_rng, ContextFlag, Secp256k1, SecretKey,
 };
 
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, ByteOrder};
-use grin_core::ser::{self, Readable, Reader, Writeable, Writer};
+use lurker_core::ser::{self, Readable, Reader, Writeable, Writer};
 use rand::rngs::mock::StepRng;
 use thiserror::Error;
 
@@ -153,8 +153,8 @@ impl ComSignature {
 /// Serializes a ComSignature to and from hex
 pub mod comsig_serde {
 	use super::ComSignature;
-	use grin_core::ser::{self, ProtocolVersion};
-	use grin_util::ToHex;
+	use lurker_core::ser::{self, ProtocolVersion};
+	use lurker_util::ToHex;
 	use serde::{Deserialize, Serializer};
 
 	/// Serializes a ComSignature as a hex string
@@ -174,7 +174,7 @@ pub mod comsig_serde {
 	{
 		use serde::de::Error;
 		let bytes = String::deserialize(deserializer)
-			.and_then(|string| grin_util::from_hex(&string).map_err(Error::custom))?;
+			.and_then(|string| lurker_util::from_hex(&string).map_err(Error::custom))?;
 		let sig: ComSignature = ser::deserialize_default(&mut &bytes[..]).map_err(Error::custom)?;
 		Ok(sig)
 	}
@@ -203,7 +203,7 @@ impl Writeable for ComSignature {
 mod tests {
 	use super::{ComSigError, ComSignature, ContextFlag, Secp256k1, SecretKey};
 
-	use grin_util::secp::rand::{thread_rng, RngCore};
+	use lurker_util::secp::rand::{thread_rng, RngCore};
 	use rand::Rng;
 
 	/// Test signing and verification of ComSignatures

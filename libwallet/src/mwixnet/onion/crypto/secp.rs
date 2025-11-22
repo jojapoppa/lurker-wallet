@@ -14,7 +14,7 @@
 
 //! SECP operations for comsig
 
-pub use grin_util::secp::{
+pub use lurker_util::secp::{
 	self as secp256k1zkp,
 	constants::SECRET_KEY_SIZE,
 	key::{SecretKey, ZERO_KEY},
@@ -23,7 +23,7 @@ pub use grin_util::secp::{
 	ContextFlag, Secp256k1,
 };
 
-use grin_core::ser::{self, Reader};
+use lurker_core::ser::{self, Reader};
 use rand::rngs::mock::StepRng;
 
 /// Generate a random SecretKey.
@@ -80,11 +80,11 @@ pub fn sub_value(commitment: &Commitment, value: u64) -> Result<Commitment, secp
 #[allow(dead_code)]
 pub fn sign(
 	sk: &SecretKey,
-	msg: &grin_util::secp::Message,
-) -> Result<grin_util::secp::Signature, secp256k1zkp::Error> {
+	msg: &lurker_util::secp::Message,
+) -> Result<lurker_util::secp::Signature, secp256k1zkp::Error> {
 	let secp = Secp256k1::with_caps(ContextFlag::Full);
-	let pubkey = grin_util::secp::PublicKey::from_secret_key(&secp, &sk)?;
-	let sig = grin_util::secp::aggsig::sign_single(
+	let pubkey = lurker_util::secp::PublicKey::from_secret_key(&secp, &sk)?;
+	let sig = lurker_util::secp::aggsig::sign_single(
 		&secp,
 		&msg,
 		&sk,

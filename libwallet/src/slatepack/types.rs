@@ -20,9 +20,9 @@ use sha2::{Digest, Sha512};
 use x25519_dalek::StaticSecret;
 
 use crate::dalek_ser;
-use crate::grin_core::ser::{self, Readable, Reader, Writeable, Writer};
+use crate::lurker_core::ser::{self, Readable, Reader, Writeable, Writer};
 use crate::Error;
-use grin_wallet_util::byte_ser;
+use lurker_wallet_util::byte_ser;
 
 use super::SlatepackAddress;
 
@@ -630,8 +630,8 @@ impl Readable for SlatepackEncMetadataBin {
 }
 
 #[test]
-fn slatepack_bin_basic_ser() -> Result<(), grin_wallet_util::byte_ser::Error> {
-	use grin_wallet_util::byte_ser;
+fn slatepack_bin_basic_ser() -> Result<(), lurker_wallet_util::byte_ser::Error> {
+	use lurker_wallet_util::byte_ser;
 	let mut payload: Vec<u8> = Vec::with_capacity(243);
 	for _ in 0..payload.capacity() {
 		payload.push(rand::random());
@@ -649,9 +649,9 @@ fn slatepack_bin_basic_ser() -> Result<(), grin_wallet_util::byte_ser::Error> {
 }
 
 #[test]
-fn slatepack_bin_opt_fields_ser() -> Result<(), grin_wallet_util::byte_ser::Error> {
-	use crate::grin_core::global;
-	use grin_wallet_util::byte_ser;
+fn slatepack_bin_opt_fields_ser() -> Result<(), lurker_wallet_util::byte_ser::Error> {
+	use crate::lurker_core::global;
+	use lurker_wallet_util::byte_ser;
 	global::set_local_chain_type(global::ChainTypes::AutomatedTesting);
 	let mut payload: Vec<u8> = Vec::with_capacity(243);
 	for _ in 0..payload.capacity() {
@@ -674,10 +674,10 @@ fn slatepack_bin_opt_fields_ser() -> Result<(), grin_wallet_util::byte_ser::Erro
 
 // ensure that a slatepack with unknown data in the optional fields can be read
 #[test]
-fn slatepack_bin_future() -> Result<(), grin_wallet_util::byte_ser::Error> {
-	use crate::grin_core::global;
+fn slatepack_bin_future() -> Result<(), lurker_wallet_util::byte_ser::Error> {
+	use crate::lurker_core::global;
 	use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-	use grin_wallet_util::byte_ser;
+	use lurker_wallet_util::byte_ser;
 	use rand::{thread_rng, Rng};
 	use std::io::Cursor;
 	global::set_local_chain_type(global::ChainTypes::AutomatedTesting);
@@ -753,7 +753,7 @@ fn slatepack_bin_future() -> Result<(), grin_wallet_util::byte_ser::Error> {
 // if mode == 1
 #[test]
 fn slatepack_encrypted_meta() -> Result<(), Error> {
-	use crate::grin_core::global;
+	use crate::lurker_core::global;
 	use crate::{Slate, SlateVersion, VersionedBinSlate, VersionedSlate};
 	use ed25519_dalek::PublicKey as edDalekPublicKey;
 	use ed25519_dalek::SecretKey as edDalekSecretKey;
@@ -802,7 +802,7 @@ fn slatepack_encrypted_meta() -> Result<(), Error> {
 // metadata won't break parsing
 #[test]
 fn slatepack_encrypted_meta_future() -> Result<(), Error> {
-	use crate::grin_core::global;
+	use crate::lurker_core::global;
 	use crate::{Slate, SlateVersion, VersionedBinSlate, VersionedSlate};
 	use ed25519_dalek::PublicKey as edDalekPublicKey;
 	use ed25519_dalek::SecretKey as edDalekSecretKey;

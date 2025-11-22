@@ -14,17 +14,17 @@
 //! Functions to restore a wallet's outputs from just the master seed
 
 use crate::api_impl::owner_updater::StatusMessage;
-use crate::grin_core::consensus::{valid_header_version, WEEK_HEIGHT};
-use crate::grin_core::core::HeaderVersion;
-use crate::grin_core::global;
-use crate::grin_core::libtx::proof;
-use crate::grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
-use crate::grin_util::secp::key::SecretKey;
-use crate::grin_util::secp::pedersen;
-use crate::grin_util::secp::{ContextFlag, Secp256k1};
-use crate::grin_util::Mutex;
-use crate::grin_util::{from_hex, ToHex};
 use crate::internal::{keys, updater};
+use crate::lurker_core::consensus::{valid_header_version, WEEK_HEIGHT};
+use crate::lurker_core::core::HeaderVersion;
+use crate::lurker_core::global;
+use crate::lurker_core::libtx::proof;
+use crate::lurker_keychain::{Identifier, Keychain, SwitchCommitmentType};
+use crate::lurker_util::secp::key::SecretKey;
+use crate::lurker_util::secp::pedersen;
+use crate::lurker_util::secp::{ContextFlag, Secp256k1};
+use crate::lurker_util::Mutex;
+use crate::lurker_util::{from_hex, ToHex};
 use crate::types::*;
 use crate::{wallet_lock, Error, OutputCommitMapping};
 use blake2_rfc::blake2b::blake2b;

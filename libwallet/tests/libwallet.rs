@@ -12,15 +12,15 @@
 // limitations under the License.
 
 //! core::libtx specific tests
-use grin_core::core::transaction;
-use grin_core::core::FeeFields;
-use grin_core::libtx::{aggsig, proof};
-use grin_keychain::{
+use lurker_core::core::transaction;
+use lurker_core::core::FeeFields;
+use lurker_core::libtx::{aggsig, proof};
+use lurker_keychain::{
 	BlindSum, BlindingFactor, ExtKeychain, ExtKeychainPath, Keychain, SwitchCommitmentType,
 };
-use grin_util::secp;
-use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_wallet_libwallet::Context;
+use lurker_util::secp;
+use lurker_util::secp::key::{PublicKey, SecretKey};
+use lurker_wallet_libwallet::Context;
 use rand::thread_rng;
 
 fn kernel_sig_msg() -> secp::Message {
