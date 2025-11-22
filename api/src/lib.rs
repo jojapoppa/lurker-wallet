@@ -22,12 +22,12 @@
 #![deny(unused_mut)]
 #![warn(missing_docs)]
 
-use grin_core as core;
-use grin_keychain as keychain;
-use grin_util as util;
-use grin_wallet_config as config;
-extern crate grin_wallet_impls as impls;
-extern crate grin_wallet_libwallet as libwallet;
+use lurker_core as core;
+use lurker_keychain as keychain;
+use lurker_util as util;
+use lurker_wallet_config as config;
+extern crate lurker_wallet_impls as impls;
+extern crate lurker_wallet_libwallet as libwallet;
 
 #[macro_use]
 extern crate serde_derive;

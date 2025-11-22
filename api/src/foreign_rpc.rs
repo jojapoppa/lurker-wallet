@@ -34,7 +34,7 @@ pub trait ForeignRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -69,7 +69,7 @@ pub trait ForeignRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -118,7 +118,7 @@ pub trait ForeignRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -198,7 +198,7 @@ pub trait ForeignRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_foreign_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -345,14 +345,14 @@ pub fn run_doctest_foreign(
 	init_invoice_tx: bool,
 ) -> Result<Option<serde_json::Value>, String> {
 	use easy_jsonrpc_mw::Handler;
-	use grin_keychain::ExtKeychain;
-	use grin_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
-	use grin_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
-	use grin_wallet_libwallet::{api_impl, WalletInst};
+	use lurker_keychain::ExtKeychain;
+	use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
+	use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
+	use lurker_wallet_libwallet::{api_impl, WalletInst};
 
 	use crate::core::global;
 	use crate::core::global::ChainTypes;
-	use grin_util as util;
+	use lurker_util as util;
 
 	use std::sync::Arc;
 	use util::Mutex;
@@ -532,7 +532,7 @@ macro_rules! doctest_helper_json_rpc_foreign_assert_response {
 		// create temporary wallet, run jsonrpc request on owner api of wallet, delete wallet, return
 		// json response.
 		// In order to prevent leaking tempdirs, This function should not panic.
-		use grin_wallet_api::run_doctest_foreign;
+		use lurker_wallet_api::run_doctest_foreign;
 		use serde_json;
 		use serde_json::Value;
 		use tempfile::tempdir;

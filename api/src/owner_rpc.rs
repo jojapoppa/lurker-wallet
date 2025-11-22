@@ -13,8 +13,8 @@
 // limitations under the License.
 
 //! JSON-RPC Stub generation for the Owner API
-use grin_wallet_libwallet::RetrieveTxQueryArgs;
 use libwallet::mwixnet::SwapReq;
+use lurker_wallet_libwallet::RetrieveTxQueryArgs;
 use uuid::Uuid;
 
 use crate::config::{TorConfig, WalletConfig};
@@ -33,7 +33,7 @@ use crate::util::secp::pedersen::Commitment;
 use crate::util::{from_hex, static_secp_instance, Mutex, ZeroingString};
 use crate::{ECDHPubkey, Ed25519SecretKey, Owner, Token};
 use easy_jsonrpc_mw;
-use grin_wallet_util::OnionV3Address;
+use lurker_wallet_util::OnionV3Address;
 use rand::thread_rng;
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -52,7 +52,7 @@ pub trait OwnerRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -89,7 +89,7 @@ pub trait OwnerRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -122,7 +122,7 @@ pub trait OwnerRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -155,7 +155,7 @@ pub trait OwnerRpc {
 	# Json rpc example
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -233,7 +233,7 @@ pub trait OwnerRpc {
 	# Json rpc example
 
 	```
-		# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+		# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 		# r#"
 		{
 			"jsonrpc": "2.0",
@@ -315,10 +315,10 @@ pub trait OwnerRpc {
 
 	/**
 	Networked version of [Owner::retrieve_txs](struct.Owner.html#method.retrieve_txs), which passes only the `tx_query_args`
-	parameter. See  (../grin_wallet_libwallet/types.struct.RetrieveTxQueryArgs.html)
+	parameter. See  (../lurker_wallet_libwallet/types.struct.RetrieveTxQueryArgs.html)
 
 	```
-		# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+		# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 		# r#"
 		{
 			"jsonrpc": "2.0",
@@ -408,7 +408,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::retrieve_summary_info](struct.Owner.html#method.retrieve_summary_info).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -459,7 +459,7 @@ pub trait OwnerRpc {
 	;Networked version of [Owner::init_send_tx](struct.Owner.html#method.init_send_tx).
 
 	```
-		# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+		# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 		# r#"
 		{
 			"jsonrpc": "2.0",
@@ -518,7 +518,7 @@ pub trait OwnerRpc {
 	;Networked version of [Owner::issue_invoice_tx](struct.Owner.html#method.issue_invoice_tx).
 
 	```
-		# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+		# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 		# r#"
 		{
 			"jsonrpc": "2.0",
@@ -569,7 +569,7 @@ pub trait OwnerRpc {
 	;Networked version of [Owner::process_invoice_tx](struct.Owner.html#method.process_invoice_tx).
 
 	```
-		# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+		# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 		# r#"
 		{
 			"jsonrpc": "2.0",
@@ -653,7 +653,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::tx_lock_outputs](struct.Owner.html#method.tx_lock_outputs).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -698,7 +698,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::finalize_tx](struct.Owner.html#method.finalize_tx).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -784,7 +784,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::post_tx](struct.Owner.html#method.post_tx).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -854,7 +854,7 @@ pub trait OwnerRpc {
 
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -891,7 +891,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::get_stored_tx](struct.Owner.html#method.get_stored_tx).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -939,7 +939,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::get_rewind_hash](struct.Owner.html#method.get_rewind_hash).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -968,7 +968,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::scan_rewind_hash](struct.Owner.html#method.scan_rewind_hash).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1050,7 +1050,7 @@ pub trait OwnerRpc {
 
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1087,7 +1087,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::node_height](struct.Owner.html#method.node_height).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1175,7 +1175,7 @@ pub trait OwnerRpc {
 	Networked version of [Owner::get_top_level_directory](struct.Owner.html#method.get_top_level_directory).
 
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1204,7 +1204,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::set_top_level_directory](struct.Owner.html#method.set_top_level_directory).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1238,7 +1238,7 @@ pub trait OwnerRpc {
 	below are for illustration. Note that the values provided for `log_file_path` and `data_file_dir`
 	will be ignored and replaced with the actual values based on the value of `get_top_level_directory`
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1304,7 +1304,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::create_wallet](struct.Owner.html#method.create_wallet).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1343,7 +1343,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::open_wallet](struct.Owner.html#method.open_wallet).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1374,7 +1374,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::close_wallet](struct.Owner.html#method.close_wallet).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1404,7 +1404,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::get_mnemonic](struct.Owner.html#method.get_mnemonic).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1435,7 +1435,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::change_password](struct.Owner.html#method.change_password).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1466,7 +1466,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::delete_wallet](struct.Owner.html#method.delete_wallet).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1495,7 +1495,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::start_updated](struct.Owner.html#method.start_updater).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1526,7 +1526,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::stop_updater](struct.Owner.html#method.stop_updater).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1553,7 +1553,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::get_updater_messages](struct.Owner.html#method.get_updater_messages).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1583,7 +1583,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::get_slatepack_address](struct.Owner.html#method.get_slatepack_address).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1618,7 +1618,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::get_slatepack_secret_key](struct.Owner.html#method.get_slatepack_secret_key).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1653,7 +1653,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::create_slatepack_message](struct.Owner.html#method.create_slatepack_message).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1705,7 +1705,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::slate_from_slatepack_message](struct.Owner.html#method.slate_from_slatepack_message).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1759,7 +1759,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::decode_slatepack_message](struct.Owner.html#method.decode_slatepack_message).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1801,7 +1801,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::retrieve_payment_proof](struct.Owner.html#method.retrieve_payment_proof).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1847,7 +1847,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::verify_payment_proof](struct.Owner.html#method.verify_payment_proof).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1892,7 +1892,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::set_tor_config](struct.Owner.html#method.set_tor_config).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1925,7 +1925,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::build_output](struct.Owner.html#method.build_output).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -1969,7 +1969,7 @@ pub trait OwnerRpc {
 	/**
 	Networked version of [Owner::build_output](struct.Owner.html#method.create_mwixnet_req).
 	```
-	# grin_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
+	# lurker_wallet_api::doctest_helper_json_rpc_owner_assert_response!(
 	# r#"
 	{
 		"jsonrpc": "2.0",
@@ -2450,7 +2450,7 @@ where
 		for key in server_keys {
 			keys.push(SecretKey::from_slice(
 				&secp,
-				&grin_util::from_hex(&key).map_err(|e| Error::ServerKeyDeser(e))?,
+				&lurker_util::from_hex(&key).map_err(|e| Error::ServerKeyDeser(e))?,
 			)?)
 		}
 
@@ -2482,13 +2482,13 @@ pub fn run_doctest_owner(
 	payment_proof: bool,
 ) -> Result<Option<serde_json::Value>, String> {
 	use easy_jsonrpc_mw::Handler;
-	use grin_keychain::ExtKeychain;
-	use grin_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
-	use grin_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
-	use grin_wallet_libwallet::{api_impl, WalletInst};
+	use lurker_keychain::ExtKeychain;
+	use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
+	use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
+	use lurker_wallet_libwallet::{api_impl, WalletInst};
 
 	use crate::core::global::ChainTypes;
-	use grin_util as util;
+	use lurker_util as util;
 
 	use std::{fs, thread};
 
@@ -2687,7 +2687,7 @@ macro_rules! doctest_helper_json_rpc_owner_assert_response {
 		// TODO: Fix properly
 		#[cfg(not(target_os = "windows"))]
 		{
-			use grin_wallet_api::run_doctest_owner;
+			use lurker_wallet_api::run_doctest_owner;
 			use serde_json;
 			use serde_json::Value;
 			use tempfile::tempdir;
