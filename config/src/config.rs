@@ -43,28 +43,28 @@ pub const API_SECRET_FILE_NAME: &str = ".foreign_api_secret";
 /// Owner API secret
 pub const OWNER_API_SECRET_FILE_NAME: &str = ".owner_api_secret";
 
-fn get_grin_path(
+fn get_lurker_path(
 	chain_type: &global::ChainTypes,
 	create_path: bool,
 ) -> Result<PathBuf, ConfigError> {
 	// Check if grin dir exists
-	let mut grin_path = match dirs::home_dir() {
+	let mut lurker_path = match dirs::home_dir() {
 		Some(p) => p,
 		None => PathBuf::new(),
 	};
-	grin_path.push(GRIN_HOME);
-	grin_path.push(chain_type.shortname());
+	lurker_path.push(GRIN_HOME);
+	lurker_path.push(chain_type.shortname());
 	// Create if the default path doesn't exist
-	if !grin_path.exists() && create_path {
-		fs::create_dir_all(grin_path.clone())?;
+	if !lurker_path.exists() && create_path {
+		fs::create_dir_all(lurker_path.clone())?;
 	}
 
-	if !grin_path.exists() {
+	if !lurker_path.exists() {
 		Err(ConfigError::PathNotFoundError(String::from(
-			grin_path.to_str().unwrap(),
+			lurker_path.to_str().unwrap(),
 		)))
 	} else {
-		Ok(grin_path)
+		Ok(lurker_path)
 	}
 }
 
@@ -120,11 +120,11 @@ fn check_api_secret_file(
 	data_path: Option<PathBuf>,
 	file_name: &str,
 ) -> Result<(), ConfigError> {
-	let grin_path = match data_path {
+	let lurker_path = match data_path {
 		Some(p) => p,
-		None => get_grin_path(chain_type, false)?,
+		None => get_lurker_path(chain_type, false)?,
 	};
-	let mut api_secret_path = grin_path;
+	let mut api_secret_path = lurker_path;
 	api_secret_path.push(file_name);
 	if !api_secret_path.exists() {
 		init_api_secret(&api_secret_path)
@@ -151,13 +151,13 @@ pub fn initial_setup_wallet(
 		(path, GlobalWalletConfig::new(p.to_str().unwrap())?)
 	} else {
 		// Check if grin dir exists
-		let grin_path = match data_path {
+		let lurker_path = match data_path {
 			Some(p) => p,
-			None => get_grin_path(chain_type, create_path)?,
+			None => get_lurker_path(chain_type, create_path)?,
 		};
 
 		// Get path to default config file
-		let mut config_path = grin_path.clone();
+		let mut config_path = lurker_path.clone();
 		config_path.push(WALLET_CONFIG_FILE_NAME);
 
 		// Return defaults if file doesn't exist
@@ -166,8 +166,8 @@ pub fn initial_setup_wallet(
 				let mut default_config = GlobalWalletConfig::for_chain(chain_type);
 				default_config.config_file_path = Some(config_path);
 				// update paths relative to current dir
-				default_config.update_paths(&grin_path);
-				(grin_path, default_config)
+				default_config.update_paths(&lurker_path);
+				(lurker_path, default_config)
 			}
 			true => {
 				let mut path = config_path.clone();
