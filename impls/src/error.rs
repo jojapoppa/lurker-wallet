@@ -17,7 +17,7 @@ use crate::core::libtx;
 use crate::keychain;
 use crate::libwallet;
 use crate::util::secp;
-use grin_wallet_util::OnionV3AddressError;
+use lurker_wallet_util::OnionV3AddressError;
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, thiserror::Error, Eq, PartialEq, Debug)]

@@ -15,7 +15,7 @@
 //! Tor Configuration + Onion (Hidden) Service operations
 use crate::util::secp::key::SecretKey;
 use crate::Error;
-use grin_wallet_util::OnionV3Address;
+use lurker_wallet_util::OnionV3Address;
 
 use ed25519_dalek::ExpandedSecretKey;
 use ed25519_dalek::PublicKey as DalekPublicKey;

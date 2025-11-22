@@ -14,7 +14,7 @@
 
 use crate::Error;
 use base64;
-use grin_wallet_config::types::TorBridgeConfig;
+use lurker_wallet_config::types::TorBridgeConfig;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::net::SocketAddr;

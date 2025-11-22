@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::Error;
-use grin_wallet_config::types::TorProxyConfig;
+use lurker_wallet_config::types::TorProxyConfig;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str;

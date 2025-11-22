@@ -19,7 +19,7 @@ use crate::libwallet::{Error, Slate};
 use crate::tor::bridge::TorBridge;
 use crate::tor::proxy::TorProxy;
 use crate::SlateSender;
-use grin_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
+use lurker_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;

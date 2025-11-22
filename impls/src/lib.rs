@@ -24,15 +24,15 @@ extern crate serde_derive;
 extern crate log;
 #[macro_use]
 extern crate serde_json;
-use grin_api as api;
-use grin_chain as chain;
-use grin_core as core;
-use grin_keychain as keychain;
-use grin_store as store;
-use grin_util as util;
-use grin_wallet_libwallet as libwallet;
+use lurker_api as api;
+use lurker_chain as chain;
+use lurker_core as core;
+use lurker_keychain as keychain;
+use lurker_store as store;
+use lurker_util as util;
+use lurker_wallet_libwallet as libwallet;
 
-use grin_wallet_config as config;
+use lurker_wallet_config as config;
 
 mod adapters;
 mod backends;

@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use crate::libwallet::{slatepack, Error, Slate, Slatepack, SlatepackBin, Slatepacker};
 use crate::{SlateGetter, SlatePutter};
-use grin_wallet_util::byte_ser;
+use lurker_wallet_util::byte_ser;
 
 // And Slate putter impls to output to files
 pub struct PathToSlatepack<'a> {
@@ -101,7 +101,7 @@ mod tests {
 	use super::*;
 	use std::fs;
 
-	use grin_core::global;
+	use lurker_core::global;
 
 	fn clean_output_dir(test_dir: &str) {
 		let _ = remove_dir_all::remove_dir_all(test_dir);

@@ -18,7 +18,7 @@ use std::io::{Read, Write};
 
 use crate::libwallet::{Error, Slate, SlateVersion, VersionedBinSlate, VersionedSlate};
 use crate::{SlateGetter, SlatePutter};
-use grin_wallet_util::byte_ser;
+use lurker_wallet_util::byte_ser;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
