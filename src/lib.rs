@@ -16,9 +16,9 @@ extern crate lazy_static;
 #[macro_use]
 extern crate clap;
 
-use grin_api as api;
-use grin_util as util;
-use grin_wallet_config as config;
+use lurker_api as api;
+use lurker_util as util;
+use lurker_wallet_config as config;
 
 mod cli;
 pub mod cmd;

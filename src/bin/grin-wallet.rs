@@ -22,14 +22,14 @@ use crate::config::ConfigError;
 use crate::core::global;
 use crate::util::init_logger;
 use clap::App;
-use grin_core as core;
-use grin_util as util;
-use grin_wallet_config as config;
-use grin_wallet_impls::HTTPNodeClient;
+use lurker_core as core;
+use lurker_util as util;
+use lurker_wallet_config as config;
+use lurker_wallet_impls::HTTPNodeClient;
 use std::env;
 use std::path::PathBuf;
 
-use grin_wallet::cmd;
+use lurker_wallet::cmd;
 
 // include build information
 pub mod built_info {

@@ -20,17 +20,17 @@ use crate::util::secp::key::SecretKey;
 use crate::util::{Mutex, ZeroingString};
 /// Argument parsing and error handling for wallet commands
 use clap::ArgMatches;
-use grin_core as core;
-use grin_core::core::amount_to_hr_string;
-use grin_keychain as keychain;
-use grin_wallet_api::Owner;
-use grin_wallet_config::{config_file_exists, TorConfig, WalletConfig};
-use grin_wallet_controller::{command, Error};
-use grin_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
-use grin_wallet_libwallet::{self, Slate, SlatepackAddress, SlatepackArmor};
-use grin_wallet_libwallet::{IssueInvoiceTxArgs, NodeClient, WalletInst, WalletLCProvider};
 use linefeed::terminal::Signal;
 use linefeed::{Interface, ReadResult};
+use lurker_core as core;
+use lurker_core::core::amount_to_hr_string;
+use lurker_keychain as keychain;
+use lurker_wallet_api::Owner;
+use lurker_wallet_config::{config_file_exists, TorConfig, WalletConfig};
+use lurker_wallet_controller::{command, Error};
+use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
+use lurker_wallet_libwallet::{self, Slate, SlatepackAddress, SlatepackArmor};
+use lurker_wallet_libwallet::{IssueInvoiceTxArgs, NodeClient, WalletInst, WalletLCProvider};
 use rpassword;
 use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
@@ -1005,7 +1005,7 @@ where
 
 	// legacy hack to avoid the need for changes in existing grin-wallet.toml files
 	// remove `wallet_data` from end of path as
-	// new lifecycle provider assumes grin_wallet.toml is in root of data directory
+	// new lifecycle provider assumes lurker_wallet.toml is in root of data directory
 	let mut top_level_wallet_dir = PathBuf::from(wallet_config.clone().data_file_dir);
 	if top_level_wallet_dir.ends_with(GRIN_WALLET_DIR) {
 		top_level_wallet_dir.pop();
