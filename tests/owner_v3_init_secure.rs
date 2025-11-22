@@ -17,19 +17,19 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 
-extern crate grin_wallet;
+extern crate lurker_wallet;
 
-use grin_wallet_api::{ECDHPubkey, JsonId};
-use grin_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
+use lurker_wallet_api::{ECDHPubkey, JsonId};
+use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
 
 use clap::App;
 use std::thread;
 use std::time::Duration;
 
-use grin_keychain::ExtKeychain;
-use grin_util::secp::key::SecretKey;
-use grin_util::{from_hex, static_secp_instance};
-use grin_wallet_impls::DefaultLCProvider;
+use lurker_keychain::ExtKeychain;
+use lurker_util::secp::key::SecretKey;
+use lurker_util::{from_hex, static_secp_instance};
+use lurker_wallet_impls::DefaultLCProvider;
 use serde_json;
 
 #[macro_use]
@@ -40,7 +40,7 @@ use common::{
 };
 
 #[test]
-fn owner_v3_init_secure() -> Result<(), grin_wallet_controller::Error> {
+fn owner_v3_init_secure() -> Result<(), lurker_wallet_controller::Error> {
 	setup_global_chain_type();
 
 	let test_dir = "target/test_output/owner_v3_init_secure";

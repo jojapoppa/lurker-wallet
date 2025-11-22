@@ -17,21 +17,21 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 
-extern crate grin_wallet;
+extern crate lurker_wallet;
 
-use grin_wallet_api::{ECDHPubkey, JsonId};
-use grin_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
+use lurker_wallet_api::{ECDHPubkey, JsonId};
+use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
 
 use clap::App;
 use std::thread;
 use std::time::Duration;
 
-use grin_keychain::ExtKeychain;
-use grin_wallet_impls::DefaultLCProvider;
-use grin_wallet_libwallet::{InitTxArgs, Slate, SlateVersion, VersionedSlate};
+use lurker_keychain::ExtKeychain;
+use lurker_wallet_impls::DefaultLCProvider;
+use lurker_wallet_libwallet::{InitTxArgs, Slate, SlateVersion, VersionedSlate};
 use serde_json;
 
-use grin_util::Mutex;
+use lurker_util::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -44,7 +44,7 @@ use common::{
 };
 
 #[test]
-fn owner_v3_lifecycle() -> Result<(), grin_wallet_controller::Error> {
+fn owner_v3_lifecycle() -> Result<(), lurker_wallet_controller::Error> {
 	setup_global_chain_type();
 
 	let test_dir = "target/test_output/owner_v3_lifecycle";
@@ -381,7 +381,7 @@ fn owner_v3_lifecycle() -> Result<(), grin_wallet_controller::Error> {
 	let mut slate: Slate = res.unwrap().into();
 
 	// give this slate over to wallet 2 manually
-	grin_wallet_controller::controller::owner_single_use(
+	lurker_wallet_controller::controller::owner_single_use(
 		Some(wallet2.clone()),
 		mask2,
 		None,
