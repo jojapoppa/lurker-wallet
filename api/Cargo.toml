@@ -1,5 +1,5 @@
 [package]
-name = "grin_wallet_api"
+name = "lurker_wallet_api"
 version = "5.4.0-alpha.1"
 authors = ["Grin Developers <mimblewimble@lists.launchpad.net>"]
 description = "Grin Wallet API"
@@ -22,17 +22,17 @@ ring = "0.16"
 base64 = "0.12"
 ed25519-dalek = "1.0.0-pre.4"
 
-grin_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
-grin_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
-grin_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
-grin_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
+lurker_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
+lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
+lurker_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
+lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
 
 ##### Grin Imports
 
 # For Release
-grin_core = { path = "../../lurker/core" }
-grin_keychain = { path = "../../lurker/keychain" }
-grin_util = { path = "../../lurker/util" }
+lurker_core = { path = "../../lurker/core" }
+lurker_keychain = { path = "../../lurker/keychain" }
+lurker_util = { path = "../../lurker/util" }
 
 #####
 

@@ -1,5 +1,5 @@
 [package]
-name = "grin_wallet_controller"
+name = "lurker_wallet_controller"
 version = "5.4.0-alpha.1"
 authors = ["Grin Developers <mimblewimble@lists.launchpad.net>"]
 description = "Controllers for grin wallet instantiation"
@@ -30,19 +30,19 @@ lazy_static = "1"
 thiserror = "1"
 qr_code = "1.1.0"
 
-grin_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
-grin_wallet_api = { path = "../api", version = "5.4.0-alpha.1" }
-grin_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
-grin_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
-grin_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
+lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
+lurker_wallet_api = { path = "../api", version = "5.4.0-alpha.1" }
+lurker_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
+lurker_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
+lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
 
 ##### Grin Imports
 
-grin_core = { path = "../../lurker/core" }
-grin_keychain = { path = "../../lurker/keychain" }
-grin_util = { path = "../../lurker/util" }
-grin_api = { path = "../../lurker/api" }
-grin_chain = { path = "../../lurker/chain" }
+lurker_core = { path = "../../lurker/core" }
+lurker_keychain = { path = "../../lurker/keychain" }
+lurker_util = { path = "../../lurker/util" }
+lurker_api = { path = "../../lurker/api" }
+lurker_chain = { path = "../../lurker/chain" }
 
 #####
 

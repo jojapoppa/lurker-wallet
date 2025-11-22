@@ -1,5 +1,5 @@
 [package]
-name = "grin_wallet_libwallet"
+name = "lurker_wallet_libwallet"
 version = "5.4.0-alpha.1"
 authors = ["Grin Developers <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
@@ -40,16 +40,16 @@ num-bigint = "0.2"
 chacha20 = "0.8.1"
 hmac = { version = "0.12.0", features = ["std"]}
 
-grin_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
-grin_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
+lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
+lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
 
 ##### Grin Imports
 
 # For Release
-grin_core = { path = "../../lurker/core" }
-grin_keychain = { path = "../../lurker/keychain" }
-grin_util = { path = "../../lurker/util" }
-grin_store = { path = "../../lurker/store" }
+lurker_core = { path = "../../lurker/core" }
+lurker_keychain = { path = "../../lurker/keychain" }
+lurker_util = { path = "../../lurker/util" }
+lurker_store = { path = "../../lurker/store" }
 tokio = { version = "1.47.1", features = ["full"] }
 sodiumoxide = "0.2.7"
 yggdrasilctl = { git = "https://github.com/jojapoppa/yggdrasilctl.git", branch = "main", version = "1.2.3", default-features = false, features = ["use_tokio"] }

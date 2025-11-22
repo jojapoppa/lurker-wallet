@@ -1,5 +1,5 @@
 [package]
-name = "grin_wallet_util"
+name = "lurker_wallet_util"
 version = "5.4.0-alpha.1"
 authors = ["Grin Developers <mimblewimble@lists.launchpad.net>"]
 description = "Util, for generic utilities and to re-export grin crates"
@@ -19,7 +19,7 @@ sha3 = "0.8"
 thiserror = "1"
 
 # For Release
-grin_util = "5.3.3"
+lurker_util = "5.3.3"
 
 #####
 
