@@ -4,7 +4,7 @@ version = "5.4.0-alpha.1"
 authors = ["Grin Developers <mimblewimble@lists.launchpad.net>"]
 description = "Util, for generic utilities and to re-export grin crates"
 license = "Apache-2.0"
-repository = "https://github.com/mimblewimble/grin-wallet"
+# repository = "https://github.com/mimblewimble/grin-wallet"
 keywords = [ "crypto", "grin", "mimblewimble" ]
 workspace = ".."
 edition = "2018"
@@ -19,7 +19,8 @@ sha3 = "0.8"
 thiserror = "1"
 
 # For Release
-lurker_util = "5.3.3"
+# lurker_util = "5.3.3"
+lurker_util = { path = "../../lurker/util" }
 
 #####
 
