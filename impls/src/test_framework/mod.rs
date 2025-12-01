@@ -222,16 +222,18 @@ where
 	Ok(())
 }
 
-pub fn wallet_info<'a, L, C, K>(
-	wallet: Arc<Mutex<Box<dyn WalletInst<'a, L, C, K> + 'a>>>,
+// FIXED VERSION — NO LIFETIME ISSUE
+pub fn wallet_info<L, C, K>(
+	wallet: &Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Option<&SecretKey>,
 ) -> Result<WalletInfo, libwallet::Error>
 where
-	L: WalletLCProvider<'a, C, K>,
-	C: NodeClient + 'a,
-	K: keychain::Keychain + 'a,
+	L: WalletLCProvider<'static, C, K>,
+	C: NodeClient + 'static,
+	K: keychain::Keychain + 'static,
 {
-	let (refreshed, info) = owner::retrieve_summary_info(wallet, keychain_mask, &None, true, 1)?;
+	let (refreshed, info) =
+		owner::retrieve_summary_info(wallet.clone(), keychain_mask, &None, true, 1)?;
 	assert!(refreshed);
 	Ok(info)
 }
