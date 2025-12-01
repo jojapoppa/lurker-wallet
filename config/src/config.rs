@@ -14,10 +14,7 @@ use toml;
 use crate::comments::{insert_comments, migrate_comments};
 use crate::core::global;
 use crate::core::global::ChainTypes;
-use crate::types::{
-	ConfigError, GlobalWalletConfig, GlobalWalletConfigMembers, TorBridgeConfig, TorProxyConfig,
-};
-use crate::types::{TorConfig, WalletConfig};
+use crate::types::{ConfigError, GlobalWalletConfig, GlobalWalletConfigMembers, WalletConfig};
 use crate::util::logger::LoggingConfig;
 
 /// Wallet configuration file name
@@ -175,7 +172,6 @@ impl Default for GlobalWalletConfigMembers {
 		GlobalWalletConfigMembers {
 			config_file_version: Some(2),
 			logging: Some(LoggingConfig::default()),
-			tor: Some(TorConfig::default()),
 			wallet: WalletConfig::default(),
 		}
 	}
@@ -271,15 +267,6 @@ impl GlobalWalletConfig {
 			.as_mut()
 			.unwrap()
 			.log_file_path = log_path.to_str().unwrap().to_owned();
-
-		let tor_path = wallet_home.clone();
-		self.members
-			.as_mut()
-			.unwrap()
-			.tor
-			.as_mut()
-			.unwrap()
-			.send_config_dir = tor_path.to_str().unwrap().to_owned();
 	}
 
 	pub fn ser_config(&mut self) -> Result<String, ConfigError> {
@@ -321,11 +308,6 @@ impl GlobalWalletConfig {
 		}
 		let adjusted_config = GlobalWalletConfigMembers {
 			config_file_version: GlobalWalletConfigMembers::default().config_file_version,
-			tor: Some(TorConfig {
-				bridge: TorBridgeConfig::default(),
-				proxy: TorProxyConfig::default(),
-				..config.tor.unwrap_or(TorConfig::default())
-			}),
 			..config
 		};
 		let mut gc = GlobalWalletConfig {

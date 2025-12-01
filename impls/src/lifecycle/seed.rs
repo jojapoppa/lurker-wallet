@@ -1,16 +1,6 @@
-// Copyright 2021 The Grin Developers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// impls/src/lifecycle/seed.rs
+// Copyright 2025 Lurker Developers
+// Licensed under the Apache License, Version 2.0
 
 use core::num::NonZeroU32;
 use std::fs::{self, File};
@@ -18,12 +8,14 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::path::MAIN_SEPARATOR;
 
-use crate::blake2;
 use rand::{thread_rng, Rng};
 use serde_json;
 
 use ring::aead;
 use ring::pbkdf2;
+
+// Direct import — no crate::blake2 nonsense
+use blake2_rfc::blake2b::{blake2b, Blake2b};
 
 use crate::keychain::{mnemonic, Keychain};
 use crate::util::{self, ToHex};
@@ -65,8 +57,9 @@ impl WalletSeed {
 		}
 	}
 
+	// Legacy function — kept for compatibility with old wallets
 	pub fn _derive_keychain_old(old_wallet_seed: [u8; 32], password: &str) -> Vec<u8> {
-		let seed = blake2::blake2b::blake2b(64, password.as_bytes(), &old_wallet_seed);
+		let seed = blake2b(64, password.as_bytes(), &old_wallet_seed);
 		seed.as_bytes().to_vec()
 	}
 
@@ -89,7 +82,7 @@ impl WalletSeed {
 		} else {
 			// Hash password and use for test seed so we have a way of keeping test wallets unique
 			// but predictable
-			seed = blake2::blake2b::blake2b(32, b"", password.unwrap().as_bytes())
+			seed = blake2b(32, b"", password.unwrap().as_bytes())
 				.as_bytes()
 				.to_vec();
 		}
@@ -97,20 +90,13 @@ impl WalletSeed {
 	}
 
 	pub fn seed_file_exists(data_file_dir: &str) -> Result<bool, Error> {
-		let seed_file_path = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
+		let seed_file_path = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 		debug!("Seed file path: {}", seed_file_path);
-		if Path::new(seed_file_path).exists() {
-			Ok(true)
-		} else {
-			Ok(false)
-		}
+		Ok(Path::new(&seed_file_path).exists())
 	}
 
 	pub fn backup_seed(data_file_dir: &str) -> Result<String, Error> {
-		let seed_file_name = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
-
-		let mut path = Path::new(seed_file_name).to_path_buf();
-		path.pop();
+		let seed_file_name = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 		let mut backup_seed_file_name =
 			format!("{}{}{}.bak", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 		let mut i = 1;
@@ -119,8 +105,7 @@ impl WalletSeed {
 				format!("{}{}{}.bak.{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE, i);
 			i += 1;
 		}
-		path.push(backup_seed_file_name.clone());
-		if fs::rename(seed_file_name, backup_seed_file_name.as_str()).is_err() {
+		if fs::rename(&seed_file_name, &backup_seed_file_name).is_err() {
 			return Err(Error::GenericError("Can't rename wallet seed file".to_owned()).into());
 		}
 		warn!("{} backed up as {}", seed_file_name, backup_seed_file_name);
@@ -132,16 +117,16 @@ impl WalletSeed {
 		word_list: util::ZeroingString,
 		password: util::ZeroingString,
 	) -> Result<(), Error> {
-		let seed_file_path = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
+		let seed_file_path = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 		debug!("data file dir: {}", data_file_dir);
-		if let Ok(true) = WalletSeed::seed_file_exists(data_file_dir) {
+		if WalletSeed::seed_file_exists(data_file_dir)? {
 			debug!("seed file exists");
 			WalletSeed::backup_seed(data_file_dir)?;
 		}
-		if !Path::new(&data_file_dir).exists() {
+		if !Path::new(data_file_dir).exists() {
 			return Err(Error::WalletDoesntExist(
 				data_file_dir.to_owned(),
-				"To create a new wallet from a recovery phrase, use 'grin-wallet init -r'"
+				"To create a new wallet from a recovery phrase, use 'lurker-wallet init -r'"
 					.to_owned(),
 			)
 			.into());
@@ -149,8 +134,8 @@ impl WalletSeed {
 		let seed = WalletSeed::from_mnemonic(word_list)?;
 		let enc_seed = EncryptedWalletSeed::from_seed(&seed, password)?;
 		let enc_seed_json = serde_json::to_string_pretty(&enc_seed).map_err(|_| Error::Format)?;
-		let mut file = File::create(seed_file_path).map_err(|_| Error::IO)?;
-		file.write_all(&enc_seed_json.as_bytes())
+		let mut file = File::create(&seed_file_path).map_err(|_| Error::IO)?;
+		file.write_all(enc_seed_json.as_bytes())
 			.map_err(|_| Error::IO)?;
 		warn!("Seed created from word list");
 		Ok(())
@@ -163,10 +148,8 @@ impl WalletSeed {
 		password: util::ZeroingString,
 		test_mode: bool,
 	) -> Result<WalletSeed, Error> {
-		// create directory if it doesn't exist
 		fs::create_dir_all(data_file_dir).map_err(|_| Error::IO)?;
-
-		let seed_file_path = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
+		let seed_file_path = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 
 		warn!("Generating wallet seed file at: {}", seed_file_path);
 		let exists = WalletSeed::seed_file_exists(data_file_dir)?;
@@ -183,8 +166,8 @@ impl WalletSeed {
 
 		let enc_seed = EncryptedWalletSeed::from_seed(&seed, password)?;
 		let enc_seed_json = serde_json::to_string_pretty(&enc_seed).map_err(|_| Error::Format)?;
-		let mut file = File::create(seed_file_path).map_err(|_| Error::IO)?;
-		file.write_all(&enc_seed_json.as_bytes())
+		let mut file = File::create(&seed_file_path).map_err(|_| Error::IO)?;
+		file.write_all(enc_seed_json.as_bytes())
 			.map_err(|_| Error::IO)?;
 		Ok(seed)
 	}
@@ -193,15 +176,13 @@ impl WalletSeed {
 		data_file_dir: &str,
 		password: util::ZeroingString,
 	) -> Result<WalletSeed, Error> {
-		// create directory if it doesn't exist
 		fs::create_dir_all(data_file_dir).map_err(|_| Error::IO)?;
-
-		let seed_file_path = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
+		let seed_file_path = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
 
 		debug!("Using wallet seed file at: {}", seed_file_path);
 
-		if Path::new(seed_file_path).exists() {
-			let mut file = File::open(seed_file_path).map_err(|_| Error::IO)?;
+		if Path::new(&seed_file_path).exists() {
+			let mut file = File::open(&seed_file_path).map_err(|_| Error::IO)?;
 			let mut buffer = String::new();
 			file.read_to_string(&mut buffer).map_err(|_| Error::IO)?;
 			let enc_seed: EncryptedWalletSeed =
@@ -210,8 +191,8 @@ impl WalletSeed {
 			Ok(wallet_seed)
 		} else {
 			error!(
-				"wallet seed file {} could not be opened (grin-wallet init). \
-				 Run \"grin-wallet init\" to initialize a new wallet.",
+				"wallet seed file {} could not be opened (lurker-wallet init). \
+                Run \"lurker-wallet init\" to initialize a new wallet.",
 				seed_file_path
 			);
 			Err(Error::WalletSeedDoesntExist)
@@ -219,18 +200,16 @@ impl WalletSeed {
 	}
 
 	pub fn delete_seed_file(data_file_dir: &str) -> Result<(), Error> {
-		let seed_file_path = &format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE,);
-		if Path::new(seed_file_path).exists() {
+		let seed_file_path = format!("{}{}{}", data_file_dir, MAIN_SEPARATOR, SEED_FILE);
+		if Path::new(&seed_file_path).exists() {
 			debug!("Deleting wallet seed file at: {}", seed_file_path);
-			fs::remove_file(seed_file_path).map_err(|_| Error::IO)?;
+			fs::remove_file(&seed_file_path).map_err(|_| Error::IO)?;
 		}
 		Ok(())
 	}
 }
 
-/// Encrypted wallet seed, for storing on disk and decrypting
-/// with provided password
-
+/// Encrypted wallet seed, for storing on disk and decrypting with provided password
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct EncryptedWalletSeed {
 	encrypted_seed: String,
@@ -260,10 +239,6 @@ impl EncryptedWalletSeed {
 		);
 		let content = seed.0.to_vec();
 		let mut enc_bytes = content;
-		/*let suffix_len = aead::CHACHA20_POLY1305.tag_len();
-		for _ in 0..suffix_len {
-			enc_bytes.push(0);
-		}*/
 		let unbound_key = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, &key).unwrap();
 		let sealing_key: aead::LessSafeKey = aead::LessSafeKey::new(unbound_key);
 		let aad = aead::Aad::from(&[]);
@@ -272,7 +247,7 @@ impl EncryptedWalletSeed {
 			aad,
 			&mut enc_bytes,
 		);
-		if let Err(_) = res {
+		if res.is_err() {
 			return Err(Error::Encryption);
 		}
 
@@ -285,18 +260,10 @@ impl EncryptedWalletSeed {
 
 	/// Decrypt seed
 	pub fn decrypt(&self, password: &str) -> Result<WalletSeed, Error> {
-		let mut encrypted_seed = match util::from_hex(&self.encrypted_seed.clone()) {
-			Ok(s) => s,
-			Err(_) => return Err(Error::Encryption),
-		};
-		let salt = match util::from_hex(&self.salt.clone()) {
-			Ok(s) => s,
-			Err(_) => return Err(Error::Encryption),
-		};
-		let nonce = match util::from_hex(&self.nonce.clone()) {
-			Ok(s) => s,
-			Err(_) => return Err(Error::Encryption),
-		};
+		let mut encrypted_seed =
+			util::from_hex(&self.encrypted_seed).map_err(|_| Error::Encryption)?;
+		let salt = util::from_hex(&self.salt).map_err(|_| Error::Encryption)?;
+		let nonce = util::from_hex(&self.nonce).map_err(|_| Error::Encryption)?;
 		let password = password.as_bytes();
 		let mut key = [0; 32];
 		pbkdf2::derive(
@@ -317,10 +284,10 @@ impl EncryptedWalletSeed {
 			aad,
 			&mut encrypted_seed,
 		);
-		if let Err(_) = res {
+		if res.is_err() {
 			return Err(Error::Encryption);
 		}
-		for _ in 0..aead::AES_256_GCM.tag_len() {
+		for _ in 0..aead::CHACHA20_POLY1305.tag_len() {
 			encrypted_seed.pop();
 		}
 
@@ -332,6 +299,7 @@ impl EncryptedWalletSeed {
 mod tests {
 	use super::*;
 	use crate::util::ZeroingString;
+
 	#[test]
 	fn wallet_seed_encrypt() {
 		let password = ZeroingString::from("passwoid");

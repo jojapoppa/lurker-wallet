@@ -22,3 +22,6 @@ use lurker_wallet_config as config;
 
 mod cli;
 pub mod cmd;
+pub mod backends;
+pub mod impls;
+

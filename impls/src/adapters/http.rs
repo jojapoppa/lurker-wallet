@@ -16,10 +16,7 @@
 use crate::client_utils::{Client, ClientError};
 use crate::libwallet::slate_versions::{SlateVersion, VersionedSlate};
 use crate::libwallet::{Error, Slate};
-use crate::tor::bridge::TorBridge;
-use crate::tor::proxy::TorProxy;
 use crate::SlateSender;
-use lurker_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -28,20 +25,11 @@ use std::net::SocketAddr;
 use std::path::MAIN_SEPARATOR;
 use std::sync::Arc;
 
-use crate::tor::config as tor_config;
-use crate::tor::process as tor_process;
-
-const TOR_CONFIG_PATH: &str = "tor/sender";
-
 #[derive(Clone)]
 pub struct HttpSlateSender {
 	base_url: String,
 	use_socks: bool,
 	socks_proxy_addr: Option<SocketAddr>,
-	tor_config_dir: String,
-	process: Option<Arc<tor_process::TorProcess>>,
-	bridge: TorBridgeConfig,
-	proxy: TorProxyConfig,
 }
 
 impl HttpSlateSender {
@@ -54,10 +42,6 @@ impl HttpSlateSender {
 				base_url: base_url.to_owned(),
 				use_socks: false,
 				socks_proxy_addr: None,
-				tor_config_dir: String::from(""),
-				process: None,
-				bridge: TorBridgeConfig::default(),
-				proxy: TorProxyConfig::default(),
 			})
 		}
 	}
@@ -66,74 +50,16 @@ impl HttpSlateSender {
 	pub fn with_socks_proxy(
 		base_url: &str,
 		proxy_addr: &str,
-		tor_config_dir: &str,
-		tor_bridge: TorBridgeConfig,
-		tor_proxy: TorProxyConfig,
 	) -> Result<HttpSlateSender, SchemeNotHttp> {
 		let mut ret = Self::new(base_url)?;
 		ret.use_socks = true;
 		//TODO: Unwrap
 		ret.socks_proxy_addr = Some(SocketAddr::V4(proxy_addr.parse().unwrap()));
-		ret.tor_config_dir = tor_config_dir.into();
-		ret.bridge = tor_bridge;
-		ret.proxy = tor_proxy;
 		Ok(ret)
-	}
-
-	/// launch TOR process
-	pub fn launch_tor(&mut self) -> Result<(), Error> {
-		// set up tor send process if needed
-		let mut tor = tor_process::TorProcess::new();
-		if self.use_socks && self.process.is_none() {
-			let tor_dir = format!(
-				"{}{}{}",
-				&self.tor_config_dir, MAIN_SEPARATOR, TOR_CONFIG_PATH
-			);
-			info!(
-				"Starting TOR Process for send at {:?}",
-				self.socks_proxy_addr
-			);
-
-			let mut hm_tor_bridge: HashMap<String, String> = HashMap::new();
-			if self.bridge.bridge_line.is_some() {
-				let bridge_struct = TorBridge::try_from(self.bridge.clone())
-					.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-				hm_tor_bridge = bridge_struct
-					.to_hashmap()
-					.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-			}
-
-			let mut hm_tor_proxy: HashMap<String, String> = HashMap::new();
-			if self.proxy.transport.is_some() || self.proxy.allowed_port.is_some() {
-				let proxy = TorProxy::try_from(self.proxy.clone())
-					.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-				hm_tor_proxy = proxy
-					.to_hashmap()
-					.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-			}
-
-			tor_config::output_tor_sender_config(
-				&tor_dir,
-				&self.socks_proxy_addr.unwrap().to_string(),
-				hm_tor_bridge,
-				hm_tor_proxy,
-			)
-			.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-			// Start TOR process
-			tor.torrc_path(&format!("{}/torrc", &tor_dir))
-				.working_dir(&tor_dir)
-				.timeout(20)
-				.completion_percent(100)
-				.launch()
-				.map_err(|e| Error::TorProcess(format!("{:?}", e)))?;
-			self.process = Some(Arc::new(tor));
-		}
-		Ok(())
 	}
 
 	/// Check version of the listening wallet
 	pub fn check_other_version(&mut self, url: &str) -> Result<SlateVersion, Error> {
-		self.launch_tor()?;
 		let req = json!({
 			"jsonrpc": "2.0",
 			"method": "check_version",
@@ -220,8 +146,6 @@ impl SlateSender for HttpSlateSender {
 			false => "/",
 		};
 		let url_str = format!("{}{}v2/foreign", self.base_url, trailing);
-
-		self.launch_tor()?;
 
 		let slate_send = match self.check_other_version(&url_str)? {
 			SlateVersion::V4 => VersionedSlate::into_version(slate.clone(), SlateVersion::V4)?,
