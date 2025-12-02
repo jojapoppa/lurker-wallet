@@ -107,7 +107,7 @@ pub fn create_block_for_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: lurker_keychain::types::Keychain + 'a,
+	K: lurker_keychain::Keychain + 'a,
 {
 	let fee_amt = txs.iter().map(|tx| tx.fee()).sum();
 	let block_fees = BlockFees {
@@ -118,7 +118,8 @@ where
 
 	let coinbase_tx = {
 		let mut w_lock = wallet.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		foreign::build_coinbase(&mut **w, keychain_mask, &block_fees, false)?
 	};
 
@@ -140,7 +141,7 @@ pub fn award_block_to_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: lurker_keychain::types::Keychain + 'a,
+	K: lurker_keychain::Keychain + 'a,
 {
 	let prev = chain.head_header().unwrap();
 	let block = create_block_for_wallet(chain, prev, txs, wallet, keychain_mask)?;
@@ -171,7 +172,7 @@ pub fn award_blocks_to_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: lurker_keychain::types::Keychain + 'a,
+	K: lurker_keychain::Keychain + 'a,
 {
 	for _ in 0..number {
 		award_block_to_wallet(chain, &[], wallet.clone(), keychain_mask)?;
@@ -193,7 +194,7 @@ pub fn send_to_dest<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: lurker_keychain::types::Keychain + 'a,
+	K: lurker_keychain::Keychain + 'a,
 {
 	let slate = {
 		let mut w_lock = wallet.lock();
@@ -222,7 +223,6 @@ where
 	Ok(())
 }
 
-// FIXED VERSION — NO LIFETIME ISSUE
 pub fn wallet_info<L, C, K>(
 	wallet: &Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Option<&SecretKey>,
@@ -230,7 +230,7 @@ pub fn wallet_info<L, C, K>(
 where
 	L: WalletLCProvider<'static, C, K>,
 	C: NodeClient + 'static,
-	K: lurker_keychain::types::Keychain + 'static,
+	K: lurker_keychain::Keychain + 'static,
 {
 	let (refreshed, info) =
 		owner::retrieve_summary_info(wallet.clone(), keychain_mask, &None, true, 1)?;
