@@ -198,7 +198,8 @@ where
 {
 	let slate = {
 		let mut w_lock = wallet.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let args = InitTxArgs {
 			src_acct_name: None,
 			amount,
