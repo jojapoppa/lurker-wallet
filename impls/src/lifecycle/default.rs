@@ -6,6 +6,7 @@ use crate::core::global::ChainTypes;
 use crate::libwallet::{Error, NodeClient, WalletBackend, WalletLCProvider};
 use crate::lifecycle::seed::WalletSeed;
 use crate::util::ZeroingString;
+use crate::SledBackend;
 use lurker_keychain::ExtKeychain;
 use sled::Db;
 use std::path::PathBuf;
@@ -17,6 +18,7 @@ where
 	data_dir: String,
 	node_client: C,
 	db: Option<Db>,
+	backend: Option<Box<dyn WalletBackend<'a, C, ExtKeychain> + 'a>>,
 	_marker: std::marker::PhantomData<&'a ()>,
 }
 
@@ -29,6 +31,7 @@ where
 			data_dir: ".".to_owned(),
 			node_client,
 			db: None,
+			backend: None,
 			_marker: std::marker::PhantomData,
 		}
 	}
@@ -138,9 +141,25 @@ where
 	fn wallet_inst(
 		&mut self,
 	) -> Result<&mut Box<dyn WalletBackend<'a, C, ExtKeychain> + 'a>, Error> {
-		Err(Error::Lifecycle(
-			"Full wallet backend not yet implemented (sled stub)".into(),
-		))
+		if self.backend.is_none() {
+			let data_dir = self.get_top_level_directory()?;
+			let wallet_data_path = format!("{}/wallet_data", data_dir);
+
+			let mut sled_backend = SledBackend::new(&wallet_data_path)
+				.map_err(|e| Error::Lifecycle(format!("Failed to open Sled backend: {e}")))?;
+
+			sled_backend = sled_backend.with_node_client(self.node_client.clone());
+
+			// Optional: set default account path
+			sled_backend
+				.set_parent_key_id_by_name("default")
+				.map_err(|e| Error::Lifecycle(format!("Failed to set parent key ID: {e}")))?;
+
+			self.backend = Some(Box::new(sled_backend));
+		}
+
+		// Safe to unwrap — we just created it if missing
+		Ok(self.backend.as_mut().unwrap())
 	}
 
 	fn get_mnemonic(

@@ -41,6 +41,8 @@ use lurker_wallet_libwallet::Error as LibWalletError;
 use std::marker::PhantomData;
 use uuid::Uuid;
 
+pub type DefaultWalletImpl<'a, C> = SledBackend<'a, C, ExtKeychain>;
+
 // ONE LINE TO RULE THEM ALL — your current libwallet still exports everything publicly
 pub use lurker_wallet_libwallet::*;
 

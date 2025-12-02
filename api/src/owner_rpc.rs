@@ -664,9 +664,9 @@ pub fn run_doctest_owner(
 	payment_proof: bool,
 ) -> Result<Option<serde_json::Value>, String> {
 	use easy_jsonrpc_mw::Handler;
+	use impls::{DefaultLCProvider, DefaultWalletImpl};
 	use lurker_keychain::ExtKeychain;
 	use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
-	use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
 	use lurker_wallet_libwallet::WalletInst;
 
 	use crate::core::global::ChainTypes;
