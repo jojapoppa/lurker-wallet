@@ -217,7 +217,8 @@ where
 
 	let client = {
 		let mut w_lock = wallet.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		w.w2n_client().clone()
 	};
 	owner::post_tx(&client, slate.tx_or_err()?, false)?;
