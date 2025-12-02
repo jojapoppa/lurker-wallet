@@ -161,8 +161,8 @@ where
 		let mut wallet_guard = wallet_entry.1.lock();
 
 		// Get the inner WalletInst and call .wallet_inst() to get the backend
-		let mut backend = wallet_guard.lc_provider()?.wallet_inst()?;
-
+		let mut lc = wallet_guard.lc_provider()?;
+		let mut backend = lc.wallet_inst()?;
 		let mask = wallet_entry.2.clone();
 
 		let slate_in: SlateV4 = serde_json::from_str(&m.body)
