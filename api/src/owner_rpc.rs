@@ -2,7 +2,7 @@
 // FINAL — NO TOR — 100% COMPILING — LURKER WALLET RPC
 
 use libwallet::mwixnet::SwapReq;
-use lurker_wallet_libwallet::{api_impl::owner, WalletLCProvider};
+use lurker_wallet_libwallet::{api_impl::owner, RetrieveTxQueryArgs, WalletLCProvider};
 use uuid::Uuid;
 
 use crate::config::WalletConfig;
@@ -206,10 +206,7 @@ where
 	K: Keychain + 'static,
 {
 	fn accounts(&self, token: Token) -> Result<Vec<AcctPathMapping>, Error> {
-		owner::accounts(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-		)
+		owner::accounts(&mut **self.wallet_inst.lock(), token.keychain_mask.as_ref())
 	}
 
 	fn create_account_path(&self, token: Token, label: String) -> Result<Identifier, Error> {

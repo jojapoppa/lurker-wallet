@@ -29,6 +29,8 @@ use lurker_wallet_config as config;
 extern crate lurker_wallet_impls as impls;
 extern crate lurker_wallet_libwallet as libwallet;
 
+use lurker_keychain::Keychain;
+use lurker_wallet_libwallet::NodeClient;
 use lurker_wallet_libwallet::{WalletBackend, WalletInst, WalletLCProvider};
 use std::ops::{Deref, DerefMut};
 
@@ -60,15 +62,3 @@ pub use types::{
 	ECDHPubkey, Ed25519SecretKey, EncryptedRequest, EncryptedResponse, EncryptionErrorResponse,
 	JsonId, Token,
 };
-
-// This makes dyn WalletInst implement WalletBackend
-impl<'a, L, C, K> WalletBackend<'a, C, K> for dyn WalletInst<'a, L, C, K> + 'a
-where
-	L: WalletLCProvider<'a, C, K>,
-	C: NodeClient + 'a,
-	K: Keychain + 'a,
-{
-	fn as_wallet(&self) -> &dyn WalletInst<'a, L, C, K> {
-		self
-	}
-}

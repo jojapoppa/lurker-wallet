@@ -81,10 +81,9 @@ pub use types::{
 /// Helper for taking a lock on the wallet instance
 #[macro_export]
 macro_rules! wallet_lock {
-	($wallet_inst: expr, $wallet: ident) => {
-		let inst = $wallet_inst.clone();
-		let mut w_lock = inst.lock();
-		let w_provider = w_lock.lc_provider()?;
+	($wallet_inst:expr, $wallet:ident) => {
+		let w_lock = $wallet_inst.lock();
+		let mut w_provider = w_lock.lc_provider()?;
 		let $wallet = w_provider.wallet_inst()?;
 	};
 }

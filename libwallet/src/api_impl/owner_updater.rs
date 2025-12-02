@@ -123,8 +123,8 @@ where
 		self.is_running.store(true, Ordering::Relaxed);
 		loop {
 			let wallet_opened = {
-				let mut w_lock = self.wallet_inst.lock();
-				let w_provider = w_lock.lc_provider()?;
+				let w_lock = self.wallet_inst.lock();
+				let mut w_provider = w_lock.lc_provider()?;
 				w_provider.wallet_inst().is_ok()
 			};
 			// Business goes here

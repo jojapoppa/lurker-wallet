@@ -42,14 +42,15 @@ use std::time::Duration;
 use uuid::Uuid;
 
 /// Combined trait to allow dynamic wallet dispatch
-pub trait WalletInst<'a, L, C, K>: Send + Sync
+pub trait WalletInst<'a, L, C, K>: WalletBackend<'a, C, K> + Send + Sync
 where
-	L: WalletLCProvider<'a, C, K> + Send + Sync,
+	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
 	K: Keychain + 'a,
 {
-	/// Return the stored instance
-	fn lc_provider(&mut self) -> Result<&mut (dyn WalletLCProvider<'a, C, K> + 'a), Error>;
+	fn lc_provider(&self) -> Result<L, Error>;
+	fn w2n_client(&self) -> C;
+	fn keychain_mask(&self) -> Option<&SecretKey>;
 }
 
 /// Trait for a provider of wallet lifecycle methods
