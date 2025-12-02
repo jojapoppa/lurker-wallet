@@ -332,7 +332,6 @@ where
 			"lurker-wallet.toml",
 			wallet_config,
 			logging_config,
-			None,
 		)
 	}
 

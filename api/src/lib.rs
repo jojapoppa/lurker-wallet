@@ -29,6 +29,9 @@ use lurker_wallet_config as config;
 extern crate lurker_wallet_impls as impls;
 extern crate lurker_wallet_libwallet as libwallet;
 
+use lurker_wallet_libwallet::{WalletBackend, WalletInst, WalletLCProvider};
+use std::ops::{Deref, DerefMut};
+
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
@@ -46,7 +49,7 @@ mod types;
 
 pub use crate::foreign::{Foreign, ForeignCheckMiddleware, ForeignCheckMiddlewareFn};
 pub use crate::foreign_rpc::ForeignRpc;
-pub use crate::owner::{try_slatepack_sync_workflow, Owner};
+pub use crate::owner::Owner;
 pub use crate::owner_rpc::OwnerRpc;
 
 pub use crate::foreign_rpc::foreign_rpc as foreign_rpc_client;
@@ -57,3 +60,15 @@ pub use types::{
 	ECDHPubkey, Ed25519SecretKey, EncryptedRequest, EncryptedResponse, EncryptionErrorResponse,
 	JsonId, Token,
 };
+
+// This makes dyn WalletInst implement WalletBackend
+impl<'a, L, C, K> WalletBackend<'a, C, K> for dyn WalletInst<'a, L, C, K> + 'a
+where
+	L: WalletLCProvider<'a, C, K>,
+	C: NodeClient + 'a,
+	K: Keychain + 'a,
+{
+	fn as_wallet(&self) -> &dyn WalletInst<'a, L, C, K> {
+		self
+	}
+}

@@ -16,7 +16,7 @@ serde = "1"
 rand = "0.6"
 serde_derive = "1"
 serde_json = "1"
-easy-jsonrpc-mw = "0.5.4"
+easy-jsonrpc-mw = { path = "../../lurker/vendor/easy-jsonrpc-mw" }
 chrono = { version = "0.4.11", features = ["serde"] }
 ring = "0.16"
 base64 = "0.12"

@@ -20,9 +20,9 @@ use crate::libwallet::{
 	BlockFees, CbData, Error, NodeClient, NodeVersionInfo, Slate, VersionInfo, WalletInst,
 	WalletLCProvider,
 };
-use crate::try_slatepack_sync_workflow;
 use crate::util::secp::key::SecretKey;
 use crate::util::Mutex;
+use lurker_wallet_libwallet::api_impl::owner;
 use std::sync::Arc;
 
 /// ForeignAPI Middleware Check callback
@@ -175,7 +175,6 @@ where
 			doctest_mode,
 			middleware,
 			keychain_mask,
-			tor_config: Mutex::new(None),
 		}
 	}
 
@@ -328,15 +327,18 @@ where
 	///     // ...
 	/// }
 	/// ```
-
 	pub fn receive_tx(
 		&self,
 		slate: &Slate,
 		dest_acct_name: Option<&str>,
 		r_addr: Option<String>,
 	) -> Result<Slate, Error> {
+		// r_addr is kept only for future Yggdrasil auto-reply
+		let _ = r_addr;
+
 		let mut w_lock = self.wallet_inst.lock();
 		let w = w_lock.lc_provider()?.wallet_inst()?;
+
 		if let Some(m) = self.middleware.as_ref() {
 			m(
 				ForeignCheckMiddlewareFn::ReceiveTx,
@@ -344,30 +346,14 @@ where
 				Some(slate),
 			)?;
 		}
-		let ret_slate = foreign::receive_tx(
+
+		foreign::receive_tx(
 			&mut **w,
 			(&self.keychain_mask).as_ref(),
 			slate,
 			dest_acct_name,
 			self.doctest_mode,
-		)?;
-		match r_addr {
-			Some(a) => {
-				let res = try_slatepack_sync_workflow(
-					&ret_slate,
-					&a,
-					tor_config_lock.clone(),
-					None,
-					true,
-					self.doctest_mode,
-				);
-				match res {
-					Ok(s) => return Ok(s.unwrap()),
-					Err(_) => return Ok(ret_slate),
-				}
-			}
-			None => Ok(ret_slate),
-		}
+		)
 	}
 
 	/// Finalizes a (standard or invoice) transaction initiated by this wallet's Owner api.

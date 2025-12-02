@@ -21,12 +21,13 @@ use crate::libwallet::{
 };
 use crate::{Foreign, ForeignCheckMiddlewareFn};
 use easy_jsonrpc_mw;
+use serde::{Deserialize, Serialize};
 
 /// Public definition used to generate Foreign jsonrpc api.
 /// * When running `grin-wallet listen` with defaults, the V2 api is available at
 /// `localhost:3415/v2/foreign`
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
-#[easy_jsonrpc_mw::rpc]
+#[easy_jsonrpc_mw::rpc(no_deserialize_error)]
 pub trait ForeignRpc {
 	/**
 	Networked version of [Foreign::check_version](struct.Foreign.html#method.check_version).
@@ -365,10 +366,11 @@ pub fn run_doctest_foreign(
 	global::set_local_chain_type(ChainTypes::AutomatedTesting);
 
 	let mut wallet_proxy: WalletProxy<
-		DefaultLCProvider<LocalWalletClient, ExtKeychain>,
+		DefaultLCProvider<'static, LocalWalletClient>,
 		LocalWalletClient,
 		ExtKeychain,
-	> = WalletProxy::new(test_dir);
+	> = WalletProxy::new(test_dir).unwrap();
+
 	let chain = wallet_proxy.chain.clone();
 
 	let rec_phrase_1 = util::ZeroingString::from(
@@ -377,16 +379,18 @@ pub fn run_doctest_foreign(
 	);
 	let empty_string = util::ZeroingString::from("");
 	let client1 = LocalWalletClient::new("wallet1", wallet_proxy.tx.clone());
+
 	let mut wallet1 =
 		Box::new(DefaultWalletImpl::<LocalWalletClient>::new(client1.clone()).unwrap())
 			as Box<
 				dyn WalletInst<
 					'static,
-					DefaultLCProvider<LocalWalletClient, ExtKeychain>,
+					DefaultLCProvider<'static, LocalWalletClient>,
 					LocalWalletClient,
 					ExtKeychain,
 				>,
 			>;
+
 	let lc = wallet1.lc_provider().unwrap();
 	let _ = lc.set_top_level_directory(&format!("{}/wallet1", test_dir));
 	lc.create_wallet(None, Some(rec_phrase_1), 32, empty_string.clone(), false)
@@ -412,16 +416,18 @@ pub fn run_doctest_foreign(
 		 sell finish magic kid tiny wage stand panther inside settle feed song hole exile",
 	);
 	let client2 = LocalWalletClient::new("wallet2", wallet_proxy.tx.clone());
+
 	let mut wallet2 =
 		Box::new(DefaultWalletImpl::<LocalWalletClient>::new(client2.clone()).unwrap())
 			as Box<
 				dyn WalletInst<
 					'static,
-					DefaultLCProvider<LocalWalletClient, ExtKeychain>,
+					DefaultLCProvider<'static, LocalWalletClient>,
 					LocalWalletClient,
 					ExtKeychain,
 				>,
 			>;
+
 	let lc = wallet2.lc_provider().unwrap();
 	let _ = lc.set_top_level_directory(&format!("{}/wallet2", test_dir));
 	lc.create_wallet(None, Some(rec_phrase_2), 32, empty_string.clone(), false)
