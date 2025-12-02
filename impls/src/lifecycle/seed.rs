@@ -17,9 +17,9 @@ use ring::pbkdf2;
 // Direct import — no crate::blake2 nonsense
 use blake2_rfc::blake2b::{blake2b, Blake2b};
 
-use crate::keychain::{mnemonic, Keychain};
 use crate::util::{self, ToHex};
 use crate::Error;
+use lurker_keychain::{mnemonic, Keychain};
 
 pub const SEED_FILE: &str = "wallet.seed";
 

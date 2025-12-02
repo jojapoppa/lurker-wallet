@@ -5,7 +5,6 @@ use crate::api;
 use crate::chain;
 use crate::chain::Chain;
 use crate::core::global;
-use crate::keychain;
 use crate::libwallet;
 use crate::libwallet::api_impl::{foreign, owner};
 use crate::libwallet::{
@@ -13,6 +12,7 @@ use crate::libwallet::{
 };
 use crate::util::secp::key::SecretKey;
 use crate::util::Mutex;
+use lurker_keychain::keychain;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -107,7 +107,7 @@ pub fn create_block_for_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: keychain::Keychain + 'a,
+	K: lurker_keychain::types::Keychain + 'a,
 {
 	let fee_amt = txs.iter().map(|tx| tx.fee()).sum();
 	let block_fees = BlockFees {
@@ -140,7 +140,7 @@ pub fn award_block_to_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: keychain::Keychain + 'a,
+	K: lurker_keychain::types::Keychain + 'a,
 {
 	let prev = chain.head_header().unwrap();
 	let block = create_block_for_wallet(chain, prev, txs, wallet, keychain_mask)?;
@@ -171,7 +171,7 @@ pub fn award_blocks_to_wallet<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: keychain::Keychain + 'a,
+	K: lurker_keychain::types::Keychain + 'a,
 {
 	for _ in 0..number {
 		award_block_to_wallet(chain, &[], wallet.clone(), keychain_mask)?;
@@ -193,7 +193,7 @@ pub fn send_to_dest<'a, L, C, K>(
 where
 	L: WalletLCProvider<'a, C, K>,
 	C: NodeClient + 'a,
-	K: keychain::Keychain + 'a,
+	K: lurker_keychain::types::Keychain + 'a,
 {
 	let slate = {
 		let mut w_lock = wallet.lock();
@@ -230,7 +230,7 @@ pub fn wallet_info<L, C, K>(
 where
 	L: WalletLCProvider<'static, C, K>,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: lurker_keychain::types::Keychain + 'static,
 {
 	let (refreshed, info) =
 		owner::retrieve_summary_info(wallet.clone(), keychain_mask, &None, true, 1)?;

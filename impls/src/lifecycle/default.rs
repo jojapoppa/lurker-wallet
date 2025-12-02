@@ -3,10 +3,10 @@
 
 use crate::config::GRIN_WALLET_DIR;
 use crate::core::global::ChainTypes;
-use crate::keychain::ExtKeychain;
 use crate::libwallet::{Error, NodeClient, WalletBackend, WalletLCProvider};
 use crate::lifecycle::seed::WalletSeed;
 use crate::util::ZeroingString;
+use lurker_keychain::ExtKeychain;
 use sled::Db;
 use std::path::PathBuf;
 

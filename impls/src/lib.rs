@@ -32,7 +32,7 @@ extern crate log;
 use lurker_api as api;
 use lurker_chain as chain;
 use lurker_core as core;
-use lurker_keychain::{ExtKeychainPath, Identifier, Keychain};
+use lurker_keychain::{ExtKeychain, ExtKeychainPath, Identifier, Keychain};
 use lurker_store as store;
 use lurker_util as util;
 use lurker_wallet_config as config;
@@ -62,7 +62,6 @@ pub mod test_framework;
 
 // Extra imports actually used in this file
 use core::core::{Output, Transaction, TxKernel};
-use keychain::{ExtKeychain, Identifier, Keychain};
 use sled::{Db, Tree};
 use std::time::Duration;
 use util::secp::key::SecretKey;
@@ -179,8 +178,13 @@ where
 	}
 
 	fn set_parent_key_id_by_name(&mut self, label: &str) -> Result<(), LibWalletError> {
-		self.parent_key_id =
-			Identifier::from_path(&ExtKeychainPath::new(0, vec![label.to_string()]));
+		self.parent_key_id = Identifier::from_path(&ExtKeychainPath::new(
+			2, // depth = 2 → m/0/label_index
+			0, // account = 0
+			// TODO to support multiple account add a account_idx instead
+			0u32, // your label index, cast to u32
+			0, 0,
+		));
 		Ok(())
 	}
 

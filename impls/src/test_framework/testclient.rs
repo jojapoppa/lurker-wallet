@@ -5,11 +5,11 @@ use crate::api::{self, LocatedTxKernel};
 use crate::chain::types::NoopAdapter;
 use crate::chain::Chain;
 use crate::core::global::{set_local_chain_type, ChainTypes};
-use crate::keychain::Keychain;
 use crate::libwallet;
 use crate::libwallet::api_impl::foreign;
 use crate::libwallet::slate_versions::v4::SlateV4;
 use crate::libwallet::{NodeClient, NodeVersionInfo, Slate, WalletInst, WalletLCProvider};
+use lurker_keychain::Keychain;
 
 use lurker_core::core::transaction::Transaction;
 use lurker_core::core::transaction::TxKernel;
