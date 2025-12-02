@@ -14,9 +14,10 @@
 
 //! Implementation specific error types
 use crate::core::libtx;
-use crate::keychain;
 use crate::libwallet;
 use crate::util::secp;
+//use crate::keychain;
+use lurker_keychain::Error as KeychainError;
 use lurker_wallet_util::OnionV3AddressError;
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
@@ -32,7 +33,7 @@ pub enum Error {
 
 	/// Keychain error
 	#[error("Keychain error")]
-	Keychain(#[from] keychain::Error),
+	Keychain(#[from] lurker_keychain::Error),
 
 	/// Onion V3 Address Error
 	#[error("Onion V3 Address Error")]
