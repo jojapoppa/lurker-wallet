@@ -14,7 +14,6 @@
 
 //! Foreign API External Definition
 
-use crate::config::TorConfig;
 use crate::keychain::Keychain;
 use crate::libwallet::api_impl::foreign;
 use crate::libwallet::{
@@ -72,9 +71,6 @@ where
 	middleware: Option<ForeignCheckMiddleware>,
 	/// Stored keychain mask (in case the stored wallet seed is tokenized)
 	keychain_mask: Option<SecretKey>,
-	/// Optional TOR configuration, holding address of sender and
-	/// data directory
-	tor_config: Mutex<Option<TorConfig>>,
 }
 
 impl<'a, L, C, K> Foreign<'a, L, C, K>
@@ -181,19 +177,6 @@ where
 			keychain_mask,
 			tor_config: Mutex::new(None),
 		}
-	}
-
-	/// Set the TOR configuration for this instance of the ForeignAPI, used during
-	/// `recieve_tx` when a return address is specified
-	///
-	/// # Arguments
-	/// * `tor_config` - The optional [TorConfig](#) to use
-	/// # Returns
-	/// * Nothing
-
-	pub fn set_tor_config(&self, tor_config: Option<TorConfig>) {
-		let mut lock = self.tor_config.lock();
-		*lock = tor_config;
 	}
 
 	/// Return the version capabilities of the running ForeignApi Node
@@ -370,7 +353,6 @@ where
 		)?;
 		match r_addr {
 			Some(a) => {
-				let tor_config_lock = self.tor_config.lock();
 				let res = try_slatepack_sync_workflow(
 					&ret_slate,
 					&a,
