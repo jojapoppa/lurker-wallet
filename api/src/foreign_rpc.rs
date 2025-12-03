@@ -385,26 +385,31 @@ pub fn run_doctest_foreign(
 	// creates a sled backend for testing and a wallet
 	let wallet1_data_dir = format!("{}/wallet1", test_dir);
 	std::fs::create_dir_all(&wallet1_data_dir).unwrap();
-	let mut wallet1_backend = SledBackend::new(&wallet1_data_dir)
-		.map_err(|e| format!("Failed to create wallet1 backend: {e}"))
-		.unwrap();
-	wallet1_backend = wallet1_backend.with_node_client(client1.clone());
-	let wallet1: Box<
-		dyn WalletInst<
-			'static,
-			DefaultLCProvider<'static, LocalWalletClient>,
-			LocalWalletClient,
-			ExtKeychain,
-		>,
-	> = Box::new(wallet1_backend);
 
-	let lc = wallet1.lc_provider().unwrap();
-	let _ = lc.set_top_level_directory(&format!("{}/wallet1", test_dir));
-	lc.create_wallet(None, Some(rec_phrase_1), 32, empty_string.clone(), false)
-		.unwrap();
+	let wallet1 = Box::new(
+		DefaultWalletImpl::new(&format!("{test_dir}/wallet1")).expect("Failed to create wallet1"),
+	)
+		as Box<
+			dyn WalletInst<
+				'static,
+				DefaultLCProvider<'static, LocalWalletClient>,
+				LocalWalletClient,
+				ExtKeychain,
+			>,
+		>;
+	let mut lc = wallet1.lc_provider().expect("No lc_provider");
+	lc.set_top_level_directory(&format!("{test_dir}/wallet1"));
+	lc.create_wallet(
+		None,
+		Some(rec_phrase_1.clone()),
+		32,
+		empty_string.clone(),
+		false,
+	)
+	.expect("create_wallet failed");
 	let mask1 = lc
 		.open_wallet(None, empty_string.clone(), use_token, true)
-		.unwrap();
+		.expect("open_wallet failed");
 	let wallet1 = Arc::new(Mutex::new(wallet1));
 
 	if mask1.is_some() {
@@ -427,24 +432,31 @@ pub fn run_doctest_foreign(
 	// creates another sled backend based wallet for testing
 	let wallet2_data_dir = format!("{}/wallet2", test_dir);
 	std::fs::create_dir_all(&wallet2_data_dir).unwrap();
-	let mut wallet2_backend = SledBackend::new(&wallet2_data_dir)
-		.map_err(|e| format!("Failed to create wallet2 backend: {e}"))
-		.unwrap();
-	wallet2_backend = wallet2_backend.with_node_client(client2.clone());
-	let wallet2: Box<
-		dyn WalletInst<
-			'static,
-			DefaultLCProvider<'static, LocalWalletClient>,
-			LocalWalletClient,
-			ExtKeychain,
-		>,
-	> = Box::new(wallet2_backend);
 
-	let lc = wallet2.lc_provider().unwrap();
-	let _ = lc.set_top_level_directory(&format!("{}/wallet2", test_dir));
-	lc.create_wallet(None, Some(rec_phrase_2), 32, empty_string.clone(), false)
-		.unwrap();
-	let mask2 = lc.open_wallet(None, empty_string, use_token, true).unwrap();
+	let wallet2 = Box::new(
+		DefaultWalletImpl::new(&format!("{test_dir}/wallet2")).expect("Failed to create wallet2"),
+	)
+		as Box<
+			dyn WalletInst<
+				'static,
+				DefaultLCProvider<'static, LocalWalletClient>,
+				LocalWalletClient,
+				ExtKeychain,
+			>,
+		>;
+	let mut lc = wallet2.lc_provider().expect("No lc_provider");
+	lc.set_top_level_directory(&format!("{test_dir}/wallet2"));
+	lc.create_wallet(
+		None,
+		Some(rec_phrase_2.clone()),
+		32,
+		empty_string.clone(),
+		false,
+	)
+	.expect("create_wallet failed");
+	let mask2 = lc
+		.open_wallet(None, empty_string.clone(), use_token, true)
+		.expect("open_wallet failed");
 	let wallet2 = Arc::new(Mutex::new(wallet2));
 
 	wallet_proxy.add_wallet(
@@ -485,17 +497,24 @@ pub fn run_doctest_foreign(
 	if init_invoice_tx {
 		let amount = 60_000_000_000;
 		let mut slate = {
-			let mut w_lock = wallet2.lock();
-			let w = w_lock.lc_provider().unwrap().wallet_inst().unwrap();
+			// --- Wallet 2: issue invoice ---
+			let w_lock = wallet2.lock();
+			let mut lc = w_lock.lc_provider().unwrap();
+			let w = lc.wallet_inst().unwrap();
+
 			let args = IssueInvoiceTxArgs {
 				amount,
 				..Default::default()
 			};
-			api_impl::owner::issue_invoice_tx(&mut **w, (&mask2).as_ref(), args, true).unwrap()
+			api_impl::owner::issue_invoice_tx(&mut **w, mask2.as_ref(), args, true).unwrap()
 		};
+
 		slate = {
-			let mut w_lock = wallet1.lock();
-			let w = w_lock.lc_provider().unwrap().wallet_inst().unwrap();
+			// --- Wallet 1: pay invoice ---
+			let w_lock = wallet1.lock();
+			let mut lc = w_lock.lc_provider().unwrap();
+			let w = lc.wallet_inst().unwrap();
+
 			let args = InitTxArgs {
 				src_acct_name: None,
 				amount: slate.amount,
@@ -505,18 +524,20 @@ pub fn run_doctest_foreign(
 				selection_strategy_is_use_all: true,
 				..Default::default()
 			};
-			api_impl::owner::process_invoice_tx(&mut **w, (&mask1).as_ref(), &slate, args, true)
+			api_impl::owner::process_invoice_tx(&mut **w, mask1.as_ref(), &slate, args, true)
 				.unwrap()
 		};
+
 		println!("INIT INVOICE SLATE");
-		// Spit out slate for input to finalize_tx
 		println!("{}", serde_json::to_string_pretty(&slate).unwrap());
 	}
 
 	if init_tx {
 		let amount = 60_000_000_000;
-		let mut w_lock = wallet1.lock();
-		let w = w_lock.lc_provider().unwrap().wallet_inst().unwrap();
+		let w_lock = wallet1.lock();
+		let mut lc = w_lock.lc_provider().unwrap();
+		let w = lc.wallet_inst().unwrap();
+
 		let args = InitTxArgs {
 			src_acct_name: None,
 			amount,
@@ -526,7 +547,7 @@ pub fn run_doctest_foreign(
 			selection_strategy_is_use_all: true,
 			..Default::default()
 		};
-		let slate = api_impl::owner::init_send_tx(&mut **w, (&mask1).as_ref(), args, true).unwrap();
+		let slate = api_impl::owner::init_send_tx(&mut **w, mask1.as_ref(), args, true).unwrap();
 		println!("INIT SLATE");
 		// Spit out slate for input to finalize_tx
 		println!("{}", serde_json::to_string_pretty(&slate).unwrap());

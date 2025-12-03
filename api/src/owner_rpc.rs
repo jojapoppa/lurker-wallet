@@ -250,9 +250,9 @@ where
 			token.keychain_mask.as_ref(),
 			&None,
 			refresh_from_node,
+			tx_id,
+			tx_slate_id,
 			None,
-			None,
-			query_args,
 		)
 	}
 
@@ -265,10 +265,10 @@ where
 		owner::retrieve_txs(
 			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
-			&None, // status_send_channel
+			&None,
 			refresh_from_node,
-			tx_id,
-			tx_slate_id,
+			None,
+			None,
 			Some(query),
 		)
 	}
@@ -289,12 +289,11 @@ where
 	}
 
 	fn init_send_tx(&self, token: Token, args: InitTxArgs) -> Result<VersionedSlate, Error> {
-		let slate = owner::init_send_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			args,
-			true,
-		)?;
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let _ = w.keychain(token.keychain_mask.as_ref())?; // apply mask
+
+		let slate = owner::init_send_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
 
@@ -303,12 +302,9 @@ where
 		token: Token,
 		args: IssueInvoiceTxArgs,
 	) -> Result<VersionedSlate, Error> {
-		let slate = owner::issue_invoice_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			args,
-			true,
-		)?;
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let slate = owner::issue_invoice_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
 
@@ -318,7 +314,7 @@ where
 		slate: VersionedSlate,
 		args: InitTxArgs,
 	) -> Result<VersionedSlate, Error> {
-		let inner = slate.into();
+		let inner: Slate = slate.into();
 		let out = owner::process_invoice_tx(
 			self.wallet_inst.lock().as_mut(),
 			token.keychain_mask.as_ref(),
@@ -330,38 +326,34 @@ where
 	}
 
 	fn tx_lock_outputs(&self, token: Token, slate: VersionedSlate) -> Result<(), Error> {
-		let inner = slate.into();
-		owner::tx_lock_outputs(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&inner,
-		)
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let inner: Slate = slate.into();
+		owner::tx_lock_outputs(&mut **w, token.keychain_mask.as_ref(), &inner)
 	}
 
 	// Finalize a slate (participant → finalized slate)
 	fn finalize_tx(&self, token: Token, slate: VersionedSlate) -> Result<VersionedSlate, Error> {
 		let mut w_lock = self.wallet_inst.lock();
 		let w = w_lock.lc_provider()?.wallet_inst()?;
-
-		let mut inner = slate.into();
+		let mut inner: Slate = slate.into();
 		let finalized = owner::finalize_tx(&mut **w, token.keychain_mask.as_ref(), &mut inner)?;
-
 		Ok(VersionedSlate::into_version(finalized, SlateVersion::V4)?)
 	}
 
 	// Post a finalized transaction to the chain
 	fn post_tx(&self, token: Token, slate: VersionedSlate, fluff: bool) -> Result<(), Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
-
-		let client = w.w2n_client().clone(); // ← correct node client
-		let inner = slate.into();
-
-		// `inner.tx` is now guaranteed to exist after finalization
+		let inner: Slate = slate.into();
+		let client = {
+			let w = self.wallet_inst.clone();
+			let mut guard = w.lock();
+			let inst = guard.lc_provider()?.wallet_inst()?;
+			let _ = inst.keychain(token.keychain_mask.as_ref())?;
+			inst.w2n_client().clone()
+		};
 		let tx = inner.tx.as_ref().ok_or(Error::GenericError(
 			"Transaction missing in finalized slate".into(),
 		))?;
-
 		owner::post_tx(&client, tx, fluff)
 	}
 
@@ -372,8 +364,9 @@ where
 		tx_slate_id: Option<Uuid>,
 	) -> Result<(), Error> {
 		owner::cancel_tx(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
+			&None, // status channel
 			tx_id,
 			tx_slate_id,
 		)
@@ -385,22 +378,19 @@ where
 		id: Option<u32>,
 		slate_id: Option<Uuid>,
 	) -> Result<Option<VersionedSlate>, Error> {
-		let res = owner::get_stored_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			id,
-			slate_id.as_ref(),
-		)?;
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+		// NOTE: no keychain() call needed – this function never uses the mask
+
+		let res = owner::get_stored_tx(&mut **w, id, slate_id.as_ref())?;
+
 		Ok(res
 			.map(|s| VersionedSlate::into_version(s, SlateVersion::V4))
 			.transpose()?)
 	}
 
 	fn get_rewind_hash(&self, token: Token) -> Result<String, Error> {
-		owner::get_rewind_hash(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-		)
+		owner::get_rewind_hash(self.wallet_inst.clone(), token.keychain_mask.as_ref())
 	}
 
 	fn scan_rewind_hash(
@@ -408,7 +398,12 @@ where
 		rewind_hash: String,
 		start_height: Option<u64>,
 	) -> Result<ViewWallet, Error> {
-		owner::scan_rewind_hash(self.wallet_inst.lock().as_mut(), rewind_hash, start_height)
+		owner::scan_rewind_hash(
+			self.wallet_inst.clone(),
+			rewind_hash,
+			start_height,
+			&None, // ← REQUIRED
+		)
 	}
 
 	fn scan(
@@ -418,16 +413,17 @@ where
 		delete_unconfirmed: bool,
 	) -> Result<(), Error> {
 		owner::scan(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
 			start_height,
 			delete_unconfirmed,
+			&None,
 		)
 	}
 
 	fn node_height(&self, token: Token) -> Result<NodeHeightResult, Error> {
 		owner::node_height(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(), // ← new style – just clone the Arc
 			token.keychain_mask.as_ref(),
 		)
 	}
@@ -552,7 +548,7 @@ where
 		sender_index: Option<u32>,
 		recipients: Vec<SlatepackAddress>,
 	) -> Result<String, Error> {
-		let inner = slate.into();
+		let inner: Slate = slate.into();
 		Owner::create_slatepack_message(
 			self,
 			token.keychain_mask.as_ref(),
@@ -695,16 +691,18 @@ pub fn run_doctest_owner(
 	let chain = wallet_proxy.chain.clone();
 
 	let client1 = LocalWalletClient::new("wallet1", wallet_proxy.tx.clone());
-	let mut wallet1 =
-		Box::new(DefaultWalletImpl::<LocalWalletClient>::new(client1.clone()).unwrap())
-			as Box<
-				dyn WalletInst<
-					'static,
-					DefaultLCProvider<'static, LocalWalletClient>,
-					LocalWalletClient,
-					ExtKeychain,
-				>,
-			>;
+	let mut wallet1 = Box::new(
+		DefaultWalletImpl::new(&format!("{test_dir}/wallet1"))
+			.expect("Failed to create wallet instance"),
+	)
+		as Box<
+			dyn WalletInst<
+				'static,
+				DefaultLCProvider<'static, LocalWalletClient>,
+				LocalWalletClient,
+				ExtKeychain,
+			>,
+		>;
 
 	let lc = wallet1.lc_provider().unwrap();
 	let _ = lc.set_top_level_directory(&format!("{test_dir}/wallet1"));
@@ -768,9 +766,10 @@ pub fn run_doctest_owner(
 
 			if payment_proof {
 				let client = w.w2n_client().clone();
-				let _ = owner::post_tx(&client, slate.tx_or_err()?, true)
-					.map_err(|e| format!("post_tx failed in doctest: {e}"));
-				// Ignore the error — this is just a doctest, we don't care if it fails
+				// Just try to post — ignore any error, this is only a doctest
+				if let Ok(tx) = slate.tx_or_err() {
+					let _ = owner::post_tx(&client, tx, true);
+				}
 			}
 		}
 	}
