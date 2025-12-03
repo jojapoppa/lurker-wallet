@@ -289,10 +289,10 @@ where
 	}
 
 	fn init_send_tx(&self, token: Token, args: InitTxArgs) -> Result<VersionedSlate, Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let w_lock = self.wallet_inst.lock();
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let _ = w.keychain(token.keychain_mask.as_ref())?; // apply mask
-
 		let slate = owner::init_send_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
@@ -302,8 +302,9 @@ where
 		token: Token,
 		args: IssueInvoiceTxArgs,
 	) -> Result<VersionedSlate, Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let w_lock = self.wallet_inst.lock();
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let slate = owner::issue_invoice_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
@@ -326,16 +327,18 @@ where
 	}
 
 	fn tx_lock_outputs(&self, token: Token, slate: VersionedSlate) -> Result<(), Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let w_lock = self.wallet_inst.lock();
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let inner: Slate = slate.into();
 		owner::tx_lock_outputs(&mut **w, token.keychain_mask.as_ref(), &inner)
 	}
 
 	// Finalize a slate (participant → finalized slate)
 	fn finalize_tx(&self, token: Token, slate: VersionedSlate) -> Result<VersionedSlate, Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let w_lock = self.wallet_inst.lock();
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let mut inner: Slate = slate.into();
 		let finalized = owner::finalize_tx(&mut **w, token.keychain_mask.as_ref(), &mut inner)?;
 		Ok(VersionedSlate::into_version(finalized, SlateVersion::V4)?)
@@ -344,16 +347,19 @@ where
 	// Post a finalized transaction to the chain
 	fn post_tx(&self, token: Token, slate: VersionedSlate, fluff: bool) -> Result<(), Error> {
 		let inner: Slate = slate.into();
+
 		let client = {
-			let w = self.wallet_inst.clone();
-			let mut guard = w.lock();
-			let inst = guard.lc_provider()?.wallet_inst()?;
+			let w_lock = self.wallet_inst.lock();
+			let mut lc = w_lock.lc_provider()?;
+			let inst = lc.wallet_inst()?;
 			let _ = inst.keychain(token.keychain_mask.as_ref())?;
 			inst.w2n_client().clone()
 		};
+
 		let tx = inner.tx.as_ref().ok_or(Error::GenericError(
 			"Transaction missing in finalized slate".into(),
 		))?;
+
 		owner::post_tx(&client, tx, fluff)
 	}
 
@@ -378,8 +384,9 @@ where
 		id: Option<u32>,
 		slate_id: Option<Uuid>,
 	) -> Result<Option<VersionedSlate>, Error> {
-		let mut w_lock = self.wallet_inst.lock();
-		let w = w_lock.lc_provider()?.wallet_inst()?;
+		let w_lock = self.wallet_inst.lock();
+		let mut lc = w_lock.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		// NOTE: no keychain() call needed – this function never uses the mask
 
 		let res = owner::get_stored_tx(&mut **w, id, slate_id.as_ref())?;
@@ -429,7 +436,9 @@ where
 	}
 
 	fn init_secure_api(&self, ecdh_pubkey: ECDHPubkey) -> Result<ECDHPubkey, Error> {
-		let secp = static_secp_instance().lock();
+		let secp_instance = static_secp_instance(); // ← THIS SAVES THE UNIVERSE
+		let secp = secp_instance.lock();
+
 		let sec_key = SecretKey::new(&secp, &mut thread_rng());
 		let mut shared = ecdh_pubkey.ecdh_pubkey;
 		shared.mul_assign(&secp, &sec_key)?;
@@ -626,7 +635,8 @@ where
 		let commit_bytes = from_hex(&commitment).map_err(|e| Error::GenericError(e.to_string()))?;
 		let commit = Commitment::from_vec(commit_bytes);
 
-		let secp = static_secp_instance().lock();
+		let secp_instance = static_secp_instance(); // THIS LINE ENDS THE WAR
+		let secp = secp_instance.lock();
 
 		let keys: Vec<SecretKey> = server_keys
 			.into_iter()
@@ -644,6 +654,7 @@ where
 				.parse()
 				.map_err(|e| Error::GenericError(format!("Invalid fee_per_hop: {}", e)))?,
 		};
+
 		Owner::create_mwixnet_req(
 			self,
 			token.keychain_mask.as_ref(),
@@ -682,7 +693,7 @@ pub fn run_doctest_owner(
 	let _ = fs::remove_dir_all(test_dir);
 	global::set_local_chain_type(ChainTypes::AutomatedTesting);
 
-	let mut wallet_proxy: WalletProxy<
+	let wallet_proxy: WalletProxy<
 		DefaultLCProvider<'static, LocalWalletClient>,
 		LocalWalletClient,
 		ExtKeychain,
@@ -691,7 +702,7 @@ pub fn run_doctest_owner(
 	let chain = wallet_proxy.chain.clone();
 
 	let client1 = LocalWalletClient::new("wallet1", wallet_proxy.tx.clone());
-	let mut wallet1 = Box::new(
+	let wallet1 = Box::new(
 		DefaultWalletImpl::new(&format!("{test_dir}/wallet1"))
 			.expect("Failed to create wallet instance"),
 	)
@@ -704,21 +715,27 @@ pub fn run_doctest_owner(
 			>,
 		>;
 
-	let lc = wallet1.lc_provider().unwrap();
-	let _ = lc.set_top_level_directory(&format!("{test_dir}/wallet1"));
+	let wallet1 = Box::new(
+		DefaultWalletImpl::new(&format!("{test_dir}/wallet1")).expect("Failed to create wallet1"),
+	)
+		as Box<
+			dyn WalletInst<
+				'static,
+				DefaultLCProvider<'static, LocalWalletClient>,
+				LocalWalletClient,
+				ExtKeychain,
+			>,
+		>;
+
+	let mut lc = wallet1.lc_provider().expect("lc_provider");
+	lc.set_top_level_directory(&format!("{test_dir}/wallet1"));
 	lc.create_wallet(None, None, 32, ZeroingString::from(""), false)
-		.unwrap();
+		.expect("create_wallet");
 	let mask1 = lc
 		.open_wallet(None, ZeroingString::from(""), true, false)
-		.unwrap();
-	let wallet1 = Arc::new(Mutex::new(wallet1));
+		.expect("open_wallet");
 
-	wallet_proxy.add_wallet(
-		"wallet1",
-		client1.get_send_instance(),
-		wallet1.clone(),
-		mask1.clone(),
-	);
+	let wallet1 = Arc::new(Mutex::new(wallet1));
 
 	for _ in 0..blocks_to_mine {
 		let _ = test_framework::award_blocks_to_wallet(
@@ -732,7 +749,7 @@ pub fn run_doctest_owner(
 
 	if perform_tx {
 		let amount = 60_000_000_000u64;
-		let mut args = InitTxArgs {
+		let args = InitTxArgs {
 			src_acct_name: None,
 			amount,
 			minimum_confirmations: 2,
@@ -742,19 +759,14 @@ pub fn run_doctest_owner(
 			..Default::default()
 		};
 
-		// TODO? Payment proof doctest disabled — not needed for core functionality
-		//if payment_proof {
-		//        args.payment_proof_recipient_address = Some("tgrin1dummyaddress".parse::<SlatepackAddress>().unwrap());
-		//}
-
-		let mut w_lock = wallet1.lock();
-		let w = w_lock
+		let w_lock = wallet1.lock();
+		let mut lc = w_lock
 			.lc_provider()
-			.map_err(|e| format!("LC provider error: {}", e))?
+			.map_err(|e| format!("LC provider error: {}", e))?;
+		let w = lc
 			.wallet_inst()
 			.map_err(|e| format!("Wallet inst error: {}", e))?;
 
-		use lurker_wallet_libwallet::api_impl::owner;
 		let mut slate = owner::init_send_tx(&mut **w, mask1.as_ref(), args, true).unwrap();
 
 		if lock_tx {
@@ -766,7 +778,6 @@ pub fn run_doctest_owner(
 
 			if payment_proof {
 				let client = w.w2n_client().clone();
-				// Just try to post — ignore any error, this is only a doctest
 				if let Ok(tx) = slate.tx_or_err() {
 					let _ = owner::post_tx(&client, tx, true);
 				}
