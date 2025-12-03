@@ -21,6 +21,7 @@ use crate::libwallet::{
 };
 use crate::{Foreign, ForeignCheckMiddlewareFn};
 use easy_jsonrpc_mw;
+use lurker_wallet_impls::SledBackend;
 use serde::{Deserialize, Serialize};
 
 /// Public definition used to generate Foreign jsonrpc api.
@@ -381,16 +382,21 @@ pub fn run_doctest_foreign(
 	let empty_string = util::ZeroingString::from("");
 	let client1 = LocalWalletClient::new("wallet1", wallet_proxy.tx.clone());
 
-	let mut wallet1 =
-		Box::new(DefaultWalletImpl::<LocalWalletClient>::new(client1.clone()).unwrap())
-			as Box<
-				dyn WalletInst<
-					'static,
-					DefaultLCProvider<'static, LocalWalletClient>,
-					LocalWalletClient,
-					ExtKeychain,
-				>,
-			>;
+	// creates a sled backend for testing and a wallet
+	let wallet1_data_dir = format!("{}/wallet1", test_dir);
+	std::fs::create_dir_all(&wallet1_data_dir).unwrap();
+	let mut wallet1_backend = SledBackend::new(&wallet1_data_dir)
+		.map_err(|e| format!("Failed to create wallet1 backend: {e}"))
+		.unwrap();
+	wallet1_backend = wallet1_backend.with_node_client(client1.clone());
+	let wallet1: Box<
+		dyn WalletInst<
+			'static,
+			DefaultLCProvider<'static, LocalWalletClient>,
+			LocalWalletClient,
+			ExtKeychain,
+		>,
+	> = Box::new(wallet1_backend);
 
 	let lc = wallet1.lc_provider().unwrap();
 	let _ = lc.set_top_level_directory(&format!("{}/wallet1", test_dir));
@@ -418,16 +424,21 @@ pub fn run_doctest_foreign(
 	);
 	let client2 = LocalWalletClient::new("wallet2", wallet_proxy.tx.clone());
 
-	let mut wallet2 =
-		Box::new(DefaultWalletImpl::<LocalWalletClient>::new(client2.clone()).unwrap())
-			as Box<
-				dyn WalletInst<
-					'static,
-					DefaultLCProvider<'static, LocalWalletClient>,
-					LocalWalletClient,
-					ExtKeychain,
-				>,
-			>;
+	// creates another sled backend based wallet for testing
+	let wallet2_data_dir = format!("{}/wallet2", test_dir);
+	std::fs::create_dir_all(&wallet2_data_dir).unwrap();
+	let mut wallet2_backend = SledBackend::new(&wallet2_data_dir)
+		.map_err(|e| format!("Failed to create wallet2 backend: {e}"))
+		.unwrap();
+	wallet2_backend = wallet2_backend.with_node_client(client2.clone());
+	let wallet2: Box<
+		dyn WalletInst<
+			'static,
+			DefaultLCProvider<'static, LocalWalletClient>,
+			LocalWalletClient,
+			ExtKeychain,
+		>,
+	> = Box::new(wallet2_backend);
 
 	let lc = wallet2.lc_provider().unwrap();
 	let _ = lc.set_top_level_directory(&format!("{}/wallet2", test_dir));

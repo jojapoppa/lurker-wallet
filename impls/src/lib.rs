@@ -29,6 +29,10 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
+use libwallet::{
+	AcctPathMapping, Context, Error as LibWalletError, NodeClient, OutputData, ScannedBlockInfo,
+	TxLogEntry, WalletBackend, WalletInitStatus, WalletInst, WalletLCProvider,
+};
 use lurker_api as api;
 use lurker_chain as chain;
 use lurker_core as core;
@@ -37,14 +41,12 @@ use lurker_store as store;
 use lurker_util as util;
 use lurker_wallet_config as config;
 use lurker_wallet_libwallet as libwallet;
-use lurker_wallet_libwallet::Error as LibWalletError;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use uuid::Uuid;
 
-pub type DefaultWalletImpl<'a, C> = SledBackend<'a, C, ExtKeychain>;
-
-// ONE LINE TO RULE THEM ALL — your current libwallet still exports everything publicly
 pub use lurker_wallet_libwallet::*;
+pub type DefaultWalletImpl<'a, C> = SledBackend<'a, C, ExtKeychain>;
 
 // Public re-exports from this crate
 pub use crate::adapters::{
@@ -78,7 +80,7 @@ fn init_yggdrasil() -> Result<(), Error> {
 }
 
 /// Sled-based implementation of WalletBackend
-struct SledBackend<'a, C, K>
+pub struct SledBackend<'a, C, K>
 where
 	C: NodeClient + 'a,
 	K: Keychain + 'a,
@@ -103,7 +105,7 @@ where
 	C: NodeClient + 'a,
 	K: Keychain + 'a,
 {
-	fn new(data_file_dir: &str) -> Result<Self, LibWalletError> {
+	pub fn new(data_file_dir: &str) -> Result<Self, LibWalletError> {
 		let db = sled::open(data_file_dir)
 			.map_err(|e| LibWalletError::Backend(format!("Failed to open Sled DB: {}", e)))?;
 
@@ -267,5 +269,23 @@ where
 	}
 	fn init_status(&mut self) -> Result<WalletInitStatus, LibWalletError> {
 		unimplemented!()
+	}
+}
+
+impl<'a, C> WalletInst<'a, DefaultLCProvider<'a, C>, C, ExtKeychain>
+	for SledBackend<'a, C, ExtKeychain>
+where
+	C: NodeClient + 'a + Send + Sync + Clone, // Add Clone for w2n_client
+{
+	fn lc_provider(&self) -> Result<DefaultLCProvider<'a, C>, LibWalletError> {
+		unimplemented!()
+	}
+
+	fn keychain_mask(&self) -> Option<&SecretKey> {
+		self.keychain_mask.as_ref()
+	}
+
+	fn w2n_client(&self) -> C {
+		self.node_client.as_ref().unwrap().clone()
 	}
 }

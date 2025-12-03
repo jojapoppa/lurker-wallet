@@ -148,17 +148,18 @@ where
 			let mut sled_backend = SledBackend::new(&wallet_data_path)
 				.map_err(|e| Error::Lifecycle(format!("Failed to open Sled backend: {e}")))?;
 
+			// inject the node client as Arc<C>
 			sled_backend = sled_backend.with_node_client(self.node_client.clone());
 
-			// Optional: set default account path
+			// Optional: set default account
 			sled_backend
 				.set_parent_key_id_by_name("default")
 				.map_err(|e| Error::Lifecycle(format!("Failed to set parent key ID: {e}")))?;
 
-			self.backend = Some(Box::new(sled_backend));
+			let boxed = Box::new(sled_backend);
+			self.backend = Some(boxed);
 		}
 
-		// Safe to unwrap — we just created it if missing
 		Ok(self.backend.as_mut().unwrap())
 	}
 

@@ -206,7 +206,7 @@ where
 	K: Keychain + 'static,
 {
 	fn accounts(&self, token: Token) -> Result<Vec<AcctPathMapping>, Error> {
-		owner::accounts(&mut **self.wallet_inst.lock(), token.keychain_mask.as_ref())
+		owner::accounts(&mut **self.wallet_inst.lock())
 	}
 
 	fn create_account_path(&self, token: Token, label: String) -> Result<Identifier, Error> {
@@ -218,11 +218,7 @@ where
 	}
 
 	fn set_active_account(&self, token: Token, label: String) -> Result<(), Error> {
-		owner::set_active_account(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&label,
-		)
+		owner::set_active_account(&mut **self.wallet_inst.lock(), &label).map_err(Error::from)
 	}
 
 	fn retrieve_outputs(
@@ -233,10 +229,11 @@ where
 		tx_id: Option<u32>,
 	) -> Result<(bool, Vec<OutputCommitMapping>), Error> {
 		owner::retrieve_outputs(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(), // ← pass the Arc<Mutex<...>>
 			token.keychain_mask.as_ref(),
-			include_spent,
+			&None, // ← status sender (not used in RPC)
 			refresh_from_node,
+			include_spent,
 			tx_id,
 		)
 	}
@@ -249,12 +246,13 @@ where
 		tx_slate_id: Option<Uuid>,
 	) -> Result<(bool, Vec<TxLogEntry>), Error> {
 		owner::retrieve_txs(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
+			&None,
 			refresh_from_node,
-			tx_id,
-			tx_slate_id,
 			None,
+			None,
+			query_args,
 		)
 	}
 
@@ -265,11 +263,12 @@ where
 		query: RetrieveTxQueryArgs,
 	) -> Result<(bool, Vec<TxLogEntry>), Error> {
 		owner::retrieve_txs(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
+			&None, // status_send_channel
 			refresh_from_node,
-			None,
-			None,
+			tx_id,
+			tx_slate_id,
 			Some(query),
 		)
 	}
@@ -281,8 +280,9 @@ where
 		minimum_confirmations: u64,
 	) -> Result<(bool, WalletInfo), Error> {
 		owner::retrieve_summary_info(
-			self.wallet_inst.lock().as_mut(),
+			self.wallet_inst.clone(),
 			token.keychain_mask.as_ref(),
+			&None, // status_send_channel
 			refresh_from_node,
 			minimum_confirmations,
 		)
@@ -338,25 +338,31 @@ where
 		)
 	}
 
+	// Finalize a slate (participant → finalized slate)
 	fn finalize_tx(&self, token: Token, slate: VersionedSlate) -> Result<VersionedSlate, Error> {
-		let inner = slate.into();
-		let out = owner::finalize_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&inner,
-			true,
-		)?;
-		Ok(VersionedSlate::into_version(out, SlateVersion::V4)?)
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+
+		let mut inner = slate.into();
+		let finalized = owner::finalize_tx(&mut **w, token.keychain_mask.as_ref(), &mut inner)?;
+
+		Ok(VersionedSlate::into_version(finalized, SlateVersion::V4)?)
 	}
 
+	// Post a finalized transaction to the chain
 	fn post_tx(&self, token: Token, slate: VersionedSlate, fluff: bool) -> Result<(), Error> {
+		let mut w_lock = self.wallet_inst.lock();
+		let w = w_lock.lc_provider()?.wallet_inst()?;
+
+		let client = w.w2n_client().clone(); // ← correct node client
 		let inner = slate.into();
-		owner::post_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&inner,
-			fluff,
-		)
+
+		// `inner.tx` is now guaranteed to exist after finalization
+		let tx = inner.tx.as_ref().ok_or(Error::GenericError(
+			"Transaction missing in finalized slate".into(),
+		))?;
+
+		owner::post_tx(&client, tx, fluff)
 	}
 
 	fn cancel_tx(
