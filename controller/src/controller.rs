@@ -1,26 +1,15 @@
-// Copyright 2021 The Grin Developers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// controller/src/controller.rs
 
-//! Controller for wallet.. instantiates and handles listeners (or single-run
-//! invocations) as needed.
-use crate::api::{self, ApiServer, BasicAuthMiddleware, ResponseFuture, Router, TLSConfig};
-use crate::config::TorConfig;
+use crate::api::{ApiServer, BasicAuthMiddleware, ResponseFuture, Router, TLSConfig};
+
+use crate::api::types::ResponseFuture;
+use crate::api::Router;
 use crate::keychain::Keychain;
 use crate::libwallet::{
-	address, Error, NodeClient, NodeVersionInfo, Slate, SlatepackAddress, WalletInst,
-	WalletLCProvider, GRIN_BLOCK_HEADER_VERSION,
+	Error, NodeClient, NodeVersionInfo, Slate, SlatepackAddress, WalletInst, WalletLCProvider,
+	GRIN_BLOCK_HEADER_VERSION,
 };
+
 use crate::util::secp::key::SecretKey;
 use crate::util::{from_hex, static_secp_instance, to_base64, Mutex};
 use futures::channel::oneshot;
@@ -28,19 +17,11 @@ use hyper::body;
 use hyper::header::HeaderValue;
 use hyper::{Body, Request, Response, StatusCode};
 use lurker_wallet_api::JsonId;
-use lurker_wallet_config::types::{TorBridgeConfig, TorProxyConfig};
-use lurker_wallet_util::OnionV3Address;
-use qr_code::QrCode;
-use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::sync::Arc;
-
-use crate::impls::tor::config as tor_config;
-use crate::impls::tor::process as tor_process;
-use crate::impls::tor::{bridge as tor_bridge, proxy as tor_proxy};
 
 use crate::apiwallet::{
 	EncryptedRequest, EncryptedResponse, EncryptionErrorResponse, Foreign,
@@ -60,7 +41,6 @@ fn check_middleware(
 	slate: Option<&Slate>,
 ) -> Result<(), Error> {
 	match name {
-		// allow coinbases to be built regardless
 		ForeignCheckMiddlewareFn::BuildCoinbase => Ok(()),
 		_ => {
 			let mut bhv = 3;
@@ -71,7 +51,7 @@ fn check_middleware(
 				if bhv > 4 && s.version_info.block_header_version < GRIN_BLOCK_HEADER_VERSION {
 					Err(Error::Compatibility(
 						"Incoming Slate is not compatible with this wallet. \
-						 Please upgrade the node or use a different one."
+                         Please upgrade the node or use a different one."
 							.into(),
 					))?;
 				}
@@ -81,79 +61,7 @@ fn check_middleware(
 	}
 }
 
-/// initiate the tor listener
-fn init_tor_listener<L, C, K>(
-	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
-	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-	addr: &str,
-	bridge: TorBridgeConfig,
-	tor_proxy: TorProxyConfig,
-) -> Result<(tor_process::TorProcess, SlatepackAddress), Error>
-where
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: Keychain + 'static,
-{
-	let mut process = tor_process::TorProcess::new();
-	let mask = keychain_mask.lock();
-	// eventually want to read a list of service config keys
-	let mut w_lock = wallet.lock();
-	let lc = w_lock.lc_provider()?;
-	let w_inst = lc.wallet_inst()?;
-	let k = w_inst.keychain((&mask).as_ref())?;
-	let parent_key_id = w_inst.parent_key_id();
-	let tor_dir = format!("{}/tor/listener", lc.get_top_level_directory()?);
-	let sec_key = address::address_from_derivation_path(&k, &parent_key_id, 0)
-		.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-	let onion_address = OnionV3Address::from_private(&sec_key.0)
-		.map_err(|e| Error::TorConfig(format!("{:?}", e)))?;
-	let sp_address = SlatepackAddress::try_from(onion_address.clone())?;
-
-	let mut hm_tor_bridge: HashMap<String, String> = HashMap::new();
-	let mut tor_timeout = 20;
-	if bridge.bridge_line.is_some() {
-		tor_timeout = 40;
-		let bridge_config = tor_bridge::TorBridge::try_from(bridge)
-			.map_err(|e| Error::TorConfig(format!("{}", e).into()))?;
-		hm_tor_bridge = bridge_config
-			.to_hashmap()
-			.map_err(|e| Error::TorConfig(format!("{}", e).into()))?;
-	}
-
-	let mut hm_tor_poxy: HashMap<String, String> = HashMap::new();
-	if tor_proxy.transport.is_some() || tor_proxy.allowed_port.is_some() {
-		let proxy_config = tor_proxy::TorProxy::try_from(tor_proxy)
-			.map_err(|e| Error::TorConfig(format!("{}", e).into()))?;
-		hm_tor_poxy = proxy_config
-			.to_hashmap()
-			.map_err(|e| Error::TorConfig(format!("{}", e).into()))?;
-	}
-
-	warn!(
-		"Starting Tor Hidden Service for API listener at address {}, binding to {}",
-		onion_address, addr
-	);
-	tor_config::output_tor_listener_config(
-		&tor_dir,
-		addr,
-		&vec![sec_key],
-		hm_tor_bridge,
-		hm_tor_poxy,
-	)
-	.map_err(|e| Error::TorConfig(format!("{:?}", e).into()))?;
-	// Start TOR process
-	process
-		.torrc_path(&format!("{}/torrc", tor_dir))
-		.working_dir(&tor_dir)
-		.timeout(tor_timeout)
-		.completion_percent(100)
-		.launch()
-		.map_err(|e| Error::TorProcess(format!("{:?}", e)))?;
-	Ok((process, sp_address))
-}
-
 /// Instantiate wallet Owner API for a single-use (command line) call
-/// Return a function containing a loaded API context to call
 pub fn owner_single_use<L, F, C, K>(
 	wallet: Option<Arc<Mutex<Box<dyn WalletInst<'static, L, C, K>>>>>,
 	keychain_mask: Option<&SecretKey>,
@@ -172,9 +80,9 @@ where
 			let wallet = match wallet {
 				Some(w) => w,
 				None => {
-					return Err(Error::GenericError(format!(
-						"Instantiated wallet or Owner API context must be provided"
-					)))
+					return Err(Error::GenericError(
+						"Instantiated wallet or Owner API context must be provided".into(),
+					));
 				}
 			};
 			f(&mut Owner::new(wallet, None), keychain_mask)?
@@ -184,7 +92,6 @@ where
 }
 
 /// Instantiate wallet Foreign API for a single-use (command line) call
-/// Return a function containing a loaded API context to call
 pub fn foreign_single_use<'a, L, F, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'a, L, C, K>>>>,
 	keychain_mask: Option<SecretKey>,
@@ -205,10 +112,7 @@ where
 	Ok(())
 }
 
-/// Listener version, providing same API but listening for requests on a
-/// port and wrapping the calls
-/// Note keychain mask is only provided here in case the foreign listener is also being used
-/// in the same wallet instance
+/// Owner API listener — TOR REMOVED
 pub fn owner_listener<L, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
@@ -216,7 +120,6 @@ pub fn owner_listener<L, C, K>(
 	api_secret: Option<String>,
 	tls_config: Option<TLSConfig>,
 	owner_api_include_foreign: Option<bool>,
-	tor_config: Option<TorConfig>,
 	test_mode: bool,
 ) -> Result<(), Error>
 where
@@ -225,9 +128,8 @@ where
 	K: Keychain + 'static,
 {
 	let mut router = Router::new();
-	if api_secret.is_some() {
-		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("grin:".to_string() + &api_secret.unwrap()));
+	if let Some(ref secret) = api_secret {
+		let api_basic_auth = "Basic ".to_string() + &to_base64(&("grin:".to_string() + secret));
 		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
 			api_basic_auth,
 			&GRIN_OWNER_BASIC_REALM,
@@ -235,34 +137,26 @@ where
 		));
 		router.add_middleware(basic_auth_middleware);
 	}
-	let mut running_foreign = false;
-	if owner_api_include_foreign.unwrap_or(false) {
-		running_foreign = true;
-	}
 
-	let api_handler_v3 = OwnerAPIHandlerV3::new(
-		wallet.clone(),
-		keychain_mask.clone(),
-		tor_config.clone(),
-		running_foreign,
-	);
+	let running_foreign = owner_api_include_foreign.unwrap_or(false);
+
+	let api_handler_v3 =
+		OwnerAPIHandlerV3::new(wallet.clone(), keychain_mask.clone(), running_foreign);
 
 	router
 		.add_route("/v3/owner", Arc::new(api_handler_v3))
 		.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
 
-	// If so configured, add the foreign API to the same port
 	if running_foreign {
 		warn!("Starting HTTP Foreign API on Owner server at {}.", addr);
-		let foreign_api_handler_v2 =
-			ForeignAPIHandlerV2::new(wallet, keychain_mask, test_mode, Mutex::new(tor_config));
+		let foreign_api_handler_v2 = ForeignAPIHandlerV2::new(wallet, keychain_mask, test_mode);
 		router
 			.add_route("/v2/foreign", Arc::new(foreign_api_handler_v2))
 			.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
 	}
 
 	let api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>) =
-		Box::leak(Box::new(oneshot::channel::<()>()));
+		Box::leak(Box::new(oneshot::channel()));
 
 	let mut apis = ApiServer::new();
 	warn!("Starting HTTP Owner API server at {}.", addr);
@@ -270,64 +164,27 @@ where
 	let api_thread = apis
 		.start(socket_addr, router, tls_config, api_chan)
 		.map_err(|_| Error::GenericError("API thread failed to start".to_string()))?;
+
 	warn!("HTTP Owner listener started.");
 	api_thread
 		.join()
-		.map_err(|e| Error::GenericError(format!("API thread panicked :{:?}", e)))
+		.map_err(|e| Error::GenericError(format!("API thread panicked: {:?}", e)))
 }
 
-/// Listener version, providing same API but listening for requests on a
-/// port and wrapping the calls
+/// Foreign API listener — TOR REMOVED
 pub fn foreign_listener<L, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
 	addr: &str,
 	tls_config: Option<TLSConfig>,
-	use_tor: bool,
 	test_mode: bool,
-	tor_config: Option<TorConfig>,
 ) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	// Check if wallet has been opened first
-	{
-		let mut w_lock = wallet.lock();
-		let lc = w_lock.lc_provider()?;
-		let _ = lc.wallet_inst()?;
-	}
-
-	let (tor_bridge, tor_proxy) = match tor_config.clone() {
-		Some(s) => (s.bridge, s.proxy),
-		None => (TorBridgeConfig::default(), TorProxyConfig::default()),
-	};
-
-	// need to keep in scope while the main listener is running
-	let (_tor_process, address) = match use_tor {
-		true => {
-			match init_tor_listener(
-				wallet.clone(),
-				keychain_mask.clone(),
-				addr,
-				tor_bridge,
-				tor_proxy,
-			) {
-				Ok((tp, addr)) => (Some(tp), Some(addr)),
-				Err(e) => {
-					warn!("Unable to start TOR listener; Check that TOR executable is installed and on your path");
-					error!("Tor Error: {}", e);
-					warn!("Listener will be available via HTTP only");
-					(None, None)
-				}
-			}
-		}
-		false => (None, None),
-	};
-
-	let api_handler_v2 =
-		ForeignAPIHandlerV2::new(wallet, keychain_mask, test_mode, Mutex::new(tor_config));
+	let api_handler_v2 = ForeignAPIHandlerV2::new(wallet.clone(), keychain_mask, test_mode);
 	let mut router = Router::new();
 
 	router
@@ -335,7 +192,7 @@ where
 		.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
 
 	let api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>) =
-		Box::leak(Box::new(oneshot::channel::<()>()));
+		Box::leak(Box::new(oneshot::channel()));
 
 	let mut apis = ApiServer::new();
 	warn!("Starting HTTP Foreign listener API server at {}.", addr);
@@ -345,228 +202,23 @@ where
 		.map_err(|_| Error::GenericError("API thread failed to start".to_string()))?;
 
 	warn!("HTTP Foreign listener started.");
-	if let Some(a) = address {
-		let qr_string = match QrCode::new(a.to_string()) {
-			Ok(qr) => qr.to_string(false, 3),
-			Err(_) => "Failed to generate QR code!".to_string(),
-		};
-		warn!("Slatepack Address is: {}\n{}", a, qr_string);
-	}
-
 	api_thread
 		.join()
-		.map_err(|e| Error::GenericError(format!("API thread panicked :{:?}", e)))
+		.map_err(|e| Error::GenericError(format!("API thread panicked: {:?}", e)))
 }
 
-/// V3 API Handler/Wrapper for owner functions, which include a secure
-/// mode + lifecycle functions
+// ——— V3 Owner API Handler ———
 pub struct OwnerAPIHandlerV3<L, C, K>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	/// Wallet instance
 	pub wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
-
-	/// Handle to Owner API
 	owner_api: Arc<Owner<L, C, K>>,
-
-	/// ECDH shared key
 	pub shared_key: Arc<Mutex<Option<SecretKey>>>,
-
-	/// Keychain mask (to change if also running the foreign API)
 	pub keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-
-	/// Whether we're running the foreign API on the same port, and therefore
-	/// have to store the mask in-process
 	pub running_foreign: bool,
-}
-
-pub struct OwnerV3Helpers;
-
-impl OwnerV3Helpers {
-	/// Checks whether a request is to init the secure API
-	pub fn is_init_secure_api(val: &serde_json::Value) -> bool {
-		matches!(val["method"].as_str(), Some("init_secure_api"))
-	}
-
-	/// Checks whether a request is to open the wallet
-	pub fn is_open_wallet(val: &serde_json::Value) -> bool {
-		matches!(val["method"].as_str(), Some("open_wallet"))
-	}
-
-	/// Checks whether a request is an encrypted request
-	pub fn is_encrypted_request(val: &serde_json::Value) -> bool {
-		matches!(val["method"].as_str(), Some("encrypted_request_v3"))
-	}
-
-	/// whether encryption is enabled
-	pub fn encryption_enabled(key: Arc<Mutex<Option<SecretKey>>>) -> bool {
-		let share_key_ref = key.lock();
-		share_key_ref.is_some()
-	}
-
-	/// If incoming is an encrypted request, check there is a shared key,
-	/// Otherwise return an error value
-	pub fn check_encryption_started(
-		key: Arc<Mutex<Option<SecretKey>>>,
-	) -> Result<(), serde_json::Value> {
-		match OwnerV3Helpers::encryption_enabled(key) {
-			true => Ok(()),
-			false => Err(EncryptionErrorResponse::new(
-				1,
-				-32001,
-				"Encryption must be enabled. Please call 'init_secure_api` first",
-			)
-			.as_json_value()),
-		}
-	}
-
-	/// Update the statically held owner API shared key
-	pub fn update_owner_api_shared_key(
-		key: Arc<Mutex<Option<SecretKey>>>,
-		val: &serde_json::Value,
-		new_key: Option<SecretKey>,
-	) {
-		if let Some(_) = val["result"]["Ok"].as_str() {
-			let mut share_key_ref = key.lock();
-			*share_key_ref = new_key;
-		}
-	}
-
-	/// Update the shared mask, in case of foreign API being run
-	pub fn update_mask(mask: Arc<Mutex<Option<SecretKey>>>, val: &serde_json::Value) {
-		if let Some(key) = val["result"]["Ok"].as_str() {
-			let key_bytes = match from_hex(key) {
-				Ok(k) => k,
-				Err(_) => return,
-			};
-			let secp_inst = static_secp_instance();
-			let secp = secp_inst.lock();
-			let sk = match SecretKey::from_slice(&secp, &key_bytes) {
-				Ok(s) => s,
-				Err(_) => return,
-			};
-
-			let mut shared_mask_ref = mask.lock();
-			*shared_mask_ref = Some(sk);
-		}
-	}
-
-	/// Decrypt an encrypted request
-	pub fn decrypt_request(
-		key: Arc<Mutex<Option<SecretKey>>>,
-		req: &serde_json::Value,
-	) -> Result<(JsonId, serde_json::Value), serde_json::Value> {
-		let share_key_ref = key.lock();
-		let shared_key = share_key_ref.as_ref().unwrap();
-		let enc_req: EncryptedRequest = serde_json::from_value(req.clone()).map_err(|e| {
-			EncryptionErrorResponse::new(
-				1,
-				-32002,
-				&format!("Encrypted request format error: {}", e),
-			)
-			.as_json_value()
-		})?;
-		let id = enc_req.id.clone();
-		let res = enc_req.decrypt(&shared_key).map_err(|e| {
-			EncryptionErrorResponse::new(1, -32002, &format!("Decryption error: {}", e))
-				.as_json_value()
-		})?;
-		Ok((id, res))
-	}
-
-	/// Encrypt a response
-	pub fn encrypt_response(
-		key: Arc<Mutex<Option<SecretKey>>>,
-		id: &JsonId,
-		res: &serde_json::Value,
-	) -> Result<serde_json::Value, serde_json::Value> {
-		let share_key_ref = key.lock();
-		let shared_key = share_key_ref.as_ref().unwrap();
-		let enc_res = EncryptedResponse::from_json(id, res, &shared_key).map_err(|e| {
-			EncryptionErrorResponse::new(1, -32003, &format!("EncryptionError: {}", e))
-				.as_json_value()
-		})?;
-		let res = enc_res.as_json_value().map_err(|e| {
-			EncryptionErrorResponse::new(
-				1,
-				-32002,
-				&format!("Encrypted response format error: {}", e),
-			)
-			.as_json_value()
-		})?;
-		Ok(res)
-	}
-
-	/// convert an internal error (if exists) as proper JSON-RPC
-	pub fn check_error_response(val: &serde_json::Value) -> (bool, serde_json::Value) {
-		// check for string first. This ensures that error messages
-		// that are just strings aren't given weird formatting
-		let err_string = if val["result"]["Err"].is_object() {
-			let mut retval;
-			let hashed: Result<HashMap<String, String>, serde_json::Error> =
-				serde_json::from_value(val["result"]["Err"].clone());
-			retval = match hashed {
-				Err(e) => {
-					debug!("Can't cast value to Hashmap<String> {}", e);
-					None
-				}
-				Ok(h) => {
-					let mut r = "".to_owned();
-					for (k, v) in h.iter() {
-						r = format!("{}: {}", k, v);
-					}
-					Some(r)
-				}
-			};
-			// Otherwise, see if error message is a map that needs
-			// to be stringified (and accept weird formatting)
-			if retval.is_none() {
-				let hashed: Result<HashMap<String, serde_json::Value>, serde_json::Error> =
-					serde_json::from_value(val["result"]["Err"].clone());
-				retval = match hashed {
-					Err(e) => {
-						debug!("Can't cast value to Hashmap<Value> {}", e);
-						None
-					}
-					Ok(h) => {
-						let mut r = "".to_owned();
-						for (k, v) in h.iter() {
-							r = format!("{}: {}", k, v);
-						}
-						Some(r)
-					}
-				}
-			}
-			retval
-		} else if val["result"]["Err"].is_string() {
-			let parsed = serde_json::from_value::<String>(val["result"]["Err"].clone());
-			match parsed {
-				Ok(p) => Some(p),
-				Err(_) => None,
-			}
-		} else {
-			None
-		};
-		match err_string {
-			Some(s) => {
-				return (
-					true,
-					serde_json::json!({
-						"jsonrpc": "2.0",
-						"id": val["id"],
-						"error": {
-							"message": s,
-							"code": -32099
-						}
-					}),
-				)
-			}
-			None => (false, val.clone()),
-		}
-	}
 }
 
 impl<L, C, K> OwnerAPIHandlerV3<L, C, K>
@@ -575,21 +227,17 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	/// Create a new owner API handler for GET methods
 	pub fn new(
 		wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 		keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-		tor_config: Option<TorConfig>,
 		running_foreign: bool,
 	) -> OwnerAPIHandlerV3<L, C, K> {
-		let owner_api = Owner::new(wallet.clone(), None);
-		owner_api.set_tor_config(tor_config);
-		let owner_api = Arc::new(owner_api);
+		let owner_api = Arc::new(Owner::new(wallet.clone(), None));
 		OwnerAPIHandlerV3 {
 			wallet,
 			owner_api,
 			shared_key: Arc::new(Mutex::new(None)),
-			keychain_mask: keychain_mask,
+			keychain_mask,
 			running_foreign,
 		}
 	}
@@ -605,6 +253,7 @@ where
 		let mut is_init_secure_api = OwnerV3Helpers::is_init_secure_api(&val);
 		let mut was_encrypted = false;
 		let mut encrypted_req_id = JsonId::StrId(String::from(""));
+
 		if !is_init_secure_api {
 			if let Err(v) = OwnerV3Helpers::check_encryption_started(key.clone()) {
 				return Ok(v);
@@ -619,10 +268,10 @@ where
 			}
 			was_encrypted = true;
 		}
-		// check again, in case it was an encrypted call to init_secure_api
+
 		is_init_secure_api = OwnerV3Helpers::is_init_secure_api(&val);
-		// also need to intercept open/close wallet requests
 		let is_open_wallet = OwnerV3Helpers::is_open_wallet(&val);
+
 		match <dyn OwnerRpc>::handle_request(&*api, val) {
 			MaybeReply::Reply(mut r) => {
 				let (_was_error, unencrypted_intercept) =
@@ -641,8 +290,6 @@ where
 						Err(v) => return Ok(v),
 					}
 				}
-				// intercept init_secure_api response (after encryption,
-				// in case it was an encrypted call to 'init_api_secure')
 				if is_init_secure_api {
 					OwnerV3Helpers::update_owner_api_shared_key(
 						key.clone(),
@@ -652,11 +299,7 @@ where
 				}
 				Ok(r)
 			}
-			MaybeReply::DontReply => {
-				// Since it's http, we need to return something. We return [] because jsonrpc
-				// clients will parse it as an empty batch response.
-				Ok(serde_json::json!([]))
-			}
+			MaybeReply::DontReply => Ok(serde_json::json!([])),
 		}
 	}
 
@@ -699,21 +342,17 @@ where
 		Box::pin(async { Ok(create_ok_response("{}")) })
 	}
 }
-/// V2 API Handler/Wrapper for foreign functions
+
+// ——— V2 Foreign API Handler — TOR REMOVED ———
 pub struct ForeignAPIHandlerV2<L, C, K>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	/// Wallet instance
 	pub wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
-	/// Keychain mask
 	pub keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-	/// run in doctest mode
 	pub test_mode: bool,
-	/// tor config
-	pub tor_config: Mutex<Option<TorConfig>>,
 }
 
 impl<L, C, K> ForeignAPIHandlerV2<L, C, K>
@@ -722,18 +361,15 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	/// Create a new foreign API handler for GET methods
 	pub fn new(
 		wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 		keychain_mask: Arc<Mutex<Option<SecretKey>>>,
 		test_mode: bool,
-		tor_config: Mutex<Option<TorConfig>>,
 	) -> ForeignAPIHandlerV2<L, C, K> {
 		ForeignAPIHandlerV2 {
 			wallet,
 			keychain_mask,
 			test_mode,
-			tor_config,
 		}
 	}
 
@@ -744,11 +380,7 @@ where
 		let val: serde_json::Value = parse_body(req).await?;
 		match <dyn ForeignRpc>::handle_request(&api, val) {
 			MaybeReply::Reply(r) => Ok(r),
-			MaybeReply::DontReply => {
-				// Since it's http, we need to return something. We return [] because jsonrpc
-				// clients will parse it as an empty batch response.
-				Ok(serde_json::json!([]))
-			}
+			MaybeReply::DontReply => Ok(serde_json::json!([])),
 		}
 	}
 
@@ -757,10 +389,8 @@ where
 		mask: Option<SecretKey>,
 		wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 		test_mode: bool,
-		tor_config: Option<TorConfig>,
 	) -> Result<Response<Body>, Error> {
 		let api = Foreign::new(wallet, mask, Some(check_middleware), test_mode);
-		api.set_tor_config(tor_config);
 		let res = Self::call_api(req, api).await?;
 		Ok(json_response_pretty(&res))
 	}
@@ -776,10 +406,9 @@ where
 		let mask = self.keychain_mask.lock().clone();
 		let wallet = self.wallet.clone();
 		let test_mode = self.test_mode;
-		let tor_config = self.tor_config.lock().clone();
 
 		Box::pin(async move {
-			match Self::handle_post_request(req, mask, wallet, test_mode, tor_config).await {
+			match Self::handle_post_request(req, mask, wallet, test_mode).await {
 				Ok(v) => Ok(v),
 				Err(e) => {
 					error!("Request Error: {:?}", e);
@@ -794,19 +423,7 @@ where
 	}
 }
 
-// Utility to serialize a struct into JSON and produce a sensible Response
-// out of it.
-fn _json_response<T>(s: &T) -> Response<Body>
-where
-	T: Serialize,
-{
-	match serde_json::to_string(s) {
-		Ok(json) => response(StatusCode::OK, json),
-		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
-	}
-}
-
-// pretty-printed version of above
+// ——— Helper functions ———
 fn json_response_pretty<T>(s: &T) -> Response<Body>
 where
 	T: Serialize,
@@ -842,10 +459,6 @@ fn create_ok_response(json: &str) -> Response<Body> {
 		.unwrap()
 }
 
-/// Build a new hyper Response with the status code and body provided.
-///
-/// Whenever the status code is `StatusCode::OK` the text parameter should be
-/// valid JSON as the content type header will be set to `application/json'
 fn response<T: Into<Body>>(status: StatusCode, text: T) -> Response<Body> {
 	let mut builder = Response::builder()
 		.status(status)
