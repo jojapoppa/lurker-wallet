@@ -1,22 +1,29 @@
 // controller/src/controller.rs
 
-use crate::api::{ApiServer, BasicAuthMiddleware, ResponseFuture, Router, TLSConfig};
+use crate::api::{ApiServer, BasicAuthMiddleware, TLSConfig};
 
-use crate::api::types::ResponseFuture;
-use crate::api::Router;
+use crate::api;
+use hyper::body;
+use hyper::header::HeaderValue;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, StatusCode};
+use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
 use crate::keychain::Keychain;
 use crate::libwallet::{
 	Error, NodeClient, NodeVersionInfo, Slate, SlatepackAddress, WalletInst, WalletLCProvider,
 	GRIN_BLOCK_HEADER_VERSION,
 };
+use lurker_api::Handler;
 
 use crate::util::secp::key::SecretKey;
 use crate::util::{from_hex, static_secp_instance, to_base64, Mutex};
 use futures::channel::oneshot;
-use hyper::body;
-use hyper::header::HeaderValue;
-use hyper::{Body, Request, Response, StatusCode};
 use lurker_wallet_api::JsonId;
+
 use serde_json;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -28,7 +35,10 @@ use crate::apiwallet::{
 	ForeignCheckMiddlewareFn, ForeignRpc, Owner, OwnerRpc,
 };
 use easy_jsonrpc_mw;
-use easy_jsonrpc_mw::{Handler, MaybeReply};
+use easy_jsonrpc_mw::MaybeReply;
+
+use hyper::Error as HyperError;
+type ResponseFuture = Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>> + Send>>;
 
 lazy_static! {
 	pub static ref GRIN_OWNER_BASIC_REALM: HeaderValue =
