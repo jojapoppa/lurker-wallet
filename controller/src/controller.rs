@@ -3,6 +3,7 @@
 use crate::api::{ApiServer, BasicAuthMiddleware, TLSConfig};
 
 use crate::api;
+use async_trait::async_trait;
 use hyper::body;
 use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
@@ -11,6 +12,8 @@ use std::convert::Infallible;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+
+use serde::{Deserialize, Serialize};
 
 use crate::keychain::Keychain;
 use crate::libwallet::{
@@ -39,6 +42,13 @@ use easy_jsonrpc_mw::MaybeReply;
 
 use hyper::Error as HyperError;
 type ResponseFuture = Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>> + Send>>;
+
+async fn not_found() -> Result<Response<Body>, hyper::Error> {
+	Ok(Response::builder()
+		.status(StatusCode::NOT_FOUND)
+		.body("404 Not Found".into())
+		.unwrap())
+}
 
 lazy_static! {
 	pub static ref GRIN_OWNER_BASIC_REALM: HeaderValue =
@@ -137,43 +147,55 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let mut router = Router::new();
-	if let Some(ref secret) = api_secret {
-		let api_basic_auth = "Basic ".to_string() + &to_base64(&("grin:".to_string() + secret));
-		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
-			api_basic_auth,
-			&GRIN_OWNER_BASIC_REALM,
-			Some("/v2/foreign".into()),
-		));
-		router.add_middleware(basic_auth_middleware);
-	}
+	let api_handler = Arc::new(OwnerAPIHandlerV3::new(
+		wallet.clone(),
+		keychain_mask.clone(),
+		owner_api_include_foreign.unwrap_or(false),
+	));
 
-	let running_foreign = owner_api_include_foreign.unwrap_or(false);
+	let foreign_handler = if owner_api_include_foreign.unwrap_or(false) {
+		Some(Arc::new(ForeignAPIHandlerV2::new(
+			wallet,
+			keychain_mask,
+			test_mode,
+		)))
+	} else {
+		None
+	};
 
-	let api_handler_v3 =
-		OwnerAPIHandlerV3::new(wallet.clone(), keychain_mask.clone(), running_foreign);
+	let make_service = make_service_fn(move |_conn| {
+		let api_handler = api_handler.clone();
+		let foreign_handler = foreign_handler.clone();
 
-	router
-		.add_route("/v3/owner", Arc::new(api_handler_v3))
-		.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
+		async move {
+			Ok::<_, Infallible>(service_fn(move |req| {
+				let api_handler = api_handler.clone();
+				let foreign_handler = foreign_handler.clone();
 
-	if running_foreign {
-		warn!("Starting HTTP Foreign API on Owner server at {}.", addr);
-		let foreign_api_handler_v2 = ForeignAPIHandlerV2::new(wallet, keychain_mask, test_mode);
-		router
-			.add_route("/v2/foreign", Arc::new(foreign_api_handler_v2))
-			.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
-	}
+				async move {
+					if req.uri().path().starts_with("/v3/owner") {
+						api_handler.call(req).await
+					} else if let Some(fh) = foreign_handler.as_ref() {
+						if req.uri().path().starts_with("/v2/foreign") {
+							fh.call(req).await
+						} else {
+							not_found().await
+						}
+					} else {
+						not_found().await
+					}
+				}
+			}))
+		}
+	});
 
-	let api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>) =
-		Box::leak(Box::new(oneshot::channel()));
-
+	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let mut apis = ApiServer::new();
 	warn!("Starting HTTP Owner API server at {}.", addr);
-	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
+
 	let api_thread = apis
-		.start(socket_addr, router, tls_config, api_chan)
-		.map_err(|_| Error::GenericError("API thread failed to start".to_string()))?;
+		.start(socket_addr, make_service, tls_config)
+		.map_err(|e| Error::GenericError(format!("API server failed to start: {}", e)))?;
 
 	warn!("HTTP Owner listener started.");
 	api_thread
@@ -181,7 +203,6 @@ where
 		.map_err(|e| Error::GenericError(format!("API thread panicked: {:?}", e)))
 }
 
-/// Foreign API listener — TOR REMOVED
 pub fn foreign_listener<L, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
@@ -194,27 +215,30 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let api_handler_v2 = ForeignAPIHandlerV2::new(wallet.clone(), keychain_mask, test_mode);
-	let mut router = Router::new();
+	let handler = Arc::new(ForeignAPIHandlerV2::new(wallet, keychain_mask, test_mode));
 
-	router
-		.add_route("/v2/foreign", Arc::new(api_handler_v2))
-		.map_err(|_| Error::GenericError("Router failed to add route".to_string()))?;
+	let make_service = make_service_fn(move |_conn| {
+		let handler = handler.clone();
+		async move {
+			Ok::<_, Infallible>(service_fn(move |req| {
+				let handler = handler.clone();
+				async move { handler.call(req).await }
+			}))
+		}
+	});
 
-	let api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>) =
-		Box::leak(Box::new(oneshot::channel()));
-
+	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let mut apis = ApiServer::new();
 	warn!("Starting HTTP Foreign listener API server at {}.", addr);
-	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
+
 	let api_thread = apis
-		.start(socket_addr, router, tls_config, api_chan)
-		.map_err(|_| Error::GenericError("API thread failed to start".to_string()))?;
+		.start(socket_addr, make_service, tls_config)
+		.map_err(|e| Error::GenericError(format!("Foreign API failed to start: {}", e)))?;
 
 	warn!("HTTP Foreign listener started.");
 	api_thread
 		.join()
-		.map_err(|e| Error::GenericError(format!("API thread panicked: {:?}", e)))
+		.map_err(|e| Error::GenericError(format!("Foreign API thread panicked: {:?}", e)))
 }
 
 // ——— V3 Owner API Handler ———
@@ -325,31 +349,26 @@ where
 	}
 }
 
-impl<L, C, K> api::Handler for OwnerAPIHandlerV3<L, C, K>
+#[async_trait::async_trait]
+impl<L, C, K> lurker_api::Handler for OwnerAPIHandlerV3<L, C, K>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: Keychain + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static + Send + Sync,
+	C: NodeClient + 'static + Send + Sync,
+	K: Keychain + 'static + Send + Sync,
 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	async fn call(&self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
 		let key = self.shared_key.clone();
 		let mask = self.keychain_mask.clone();
 		let running_foreign = self.running_foreign;
 		let api = self.owner_api.clone();
 
-		Box::pin(async move {
-			match Self::handle_post_request(req, key, mask, running_foreign, api).await {
-				Ok(r) => Ok(r),
-				Err(e) => {
-					error!("Request Error: {:?}", e);
-					Ok(create_error_response(e))
-				}
+		match Self::handle_post_request(req, key, mask, running_foreign, api).await {
+			Ok(r) => Ok(r),
+			Err(e) => {
+				error!("Request Error: {e:?}");
+				Ok(create_error_response(e))
 			}
-		})
-	}
-
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
-		Box::pin(async { Ok(create_ok_response("{}")) })
+		}
 	}
 }
 
@@ -406,30 +425,25 @@ where
 	}
 }
 
-impl<L, C, K> api::Handler for ForeignAPIHandlerV2<L, C, K>
+#[async_trait::async_trait]
+impl<L, C, K> lurker_api::Handler for ForeignAPIHandlerV2<L, C, K>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: Keychain + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static + Send + Sync,
+	C: NodeClient + 'static + Send + Sync,
+	K: Keychain + 'static + Send + Sync,
 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	async fn call(&self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
 		let mask = self.keychain_mask.lock().clone();
 		let wallet = self.wallet.clone();
 		let test_mode = self.test_mode;
 
-		Box::pin(async move {
-			match Self::handle_post_request(req, mask, wallet, test_mode).await {
-				Ok(v) => Ok(v),
-				Err(e) => {
-					error!("Request Error: {:?}", e);
-					Ok(create_error_response(e))
-				}
+		match Self::handle_post_request(req, mask, wallet, test_mode).await {
+			Ok(v) => Ok(v),
+			Err(e) => {
+				error!("Request Error: {e:?}");
+				Ok(create_error_response(e))
 			}
-		})
-	}
-
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
-		Box::pin(async { Ok(create_ok_response("{}")) })
+		}
 	}
 }
 
