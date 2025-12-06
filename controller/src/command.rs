@@ -28,6 +28,45 @@ use std::thread;
 use std::time::Duration;
 use uuid::Uuid;
 
+/// Modern, clean parse_slatepack — Lurker edition
+/// Replaces legacy Grin version with correct two-step flow
+fn parse_slatepack<L, C, K>(
+	owner_api: &mut Owner<L, C, K>,
+	keychain_mask: Option<&SecretKey>,
+	input_file: Option<String>,
+	input_slatepack_message: Option<String>,
+) -> Result<(Slate, Option<SlatepackAddress>), Error>
+where
+	L: WalletLCProvider<'static, C, K> + 'static,
+	C: NodeClient + 'static,
+	K: keychain::Keychain + 'static,
+{
+	// 1. Read input (file or direct string)
+	let slatepack_data = if let Some(file_path) = input_file {
+		let mut f = File::open(&file_path)
+			.map_err(|e| Error::GenericError(format!("Cannot open file {}: {}", file_path, e)))?;
+		let mut content = String::new();
+		f.read_to_string(&mut content)
+			.map_err(|e| Error::GenericError(format!("Cannot read file {}: {}", file_path, e)))?;
+		content
+	} else if let Some(msg) = input_slatepack_message {
+		msg
+	} else {
+		return Err(Error::GenericError("No slatepack provided".into()));
+	};
+
+	// 2. Decode armor → Slatepack struct (decrypts if needed)
+	let decoded = controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+		api.decode_slatepack_message(m, slatepack_data, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+	})?;
+
+	// 3. Deserialize binary → actual Slate
+	let slate = Slate::deserialize_slatepack(&decoded.content, &decoded.version)
+		.map_err(|e| Error::GenericError(format!("Invalid slatepack content: {}", e)))?;
+
+	Ok((slate, decoded.sender.clone()))
+}
+
 fn show_recovery_phrase(phrase: ZeroingString) {
 	println!("Your recovery phrase is:");
 	println!();

@@ -44,7 +44,7 @@ extern crate log;
 mod foreign;
 mod foreign_rpc;
 
-mod owner;
+pub mod owner;
 mod owner_rpc;
 
 mod types;

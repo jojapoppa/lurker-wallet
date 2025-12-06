@@ -24,12 +24,27 @@ use crate::util::logger::LoggingConfig;
 use crate::util::secp::{key::SecretKey, pedersen::Commitment};
 use crate::util::{from_hex, static_secp_instance, Mutex, ZeroingString};
 use lurker_wallet_util::OnionV3Address;
+use serde_json::Value;
 use std::convert::TryFrom;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
+/// Helper to detect the deprecated "init_secure_api" call
+pub trait OwnerV3Helpers {
+	fn is_init_secure_api(&self) -> bool;
+}
+
+impl OwnerV3Helpers for Value {
+	fn is_init_secure_api(&self) -> bool {
+		self.get("method")
+			.and_then(|m| m.as_str())
+			.map(|s| s == "init_secure_api")
+			.unwrap_or(false)
+	}
+}
 
 /// Owner API — no TOR, no tor_config, no slatepack sync send removed
 pub struct Owner<L, C, K>
