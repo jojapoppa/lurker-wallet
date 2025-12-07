@@ -341,7 +341,6 @@ pub struct SendArgs {
 	pub late_lock: bool,
 	pub dest: String,
 	pub change_outputs: usize,
-	pub fluff: bool,
 	pub max_outputs: usize,
 	pub target_slate_version: Option<u16>,
 	pub payment_proof_address: Option<SlatepackAddress>,
@@ -650,7 +649,6 @@ where
 pub struct FinalizeArgs {
 	pub input_file: Option<String>,
 	pub input_slatepack_message: Option<String>,
-	pub fluff: bool,
 	pub nopost: bool,
 	pub outfile: Option<String>,
 	pub slatepack_qr: bool,
@@ -690,7 +688,7 @@ where
 
 	if !args.nopost {
 		controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
-			let result = api.post_tx(m, &slate, args.fluff);
+			let result = api.post_tx(m, &slate);
 			match result {
 				Ok(_) => {
 					info!("Transaction sent successfully");
@@ -901,7 +899,6 @@ where
 pub struct PostArgs {
 	pub input_file: Option<String>,
 	pub input_slatepack_message: Option<String>,
-	pub fluff: bool,
 }
 
 pub fn post<L, C, K>(
@@ -921,9 +918,8 @@ where
 		args.input_slatepack_message,
 	)?;
 
-	let fluff = args.fluff;
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
-		api.post_tx(m, &slate, fluff)?;
+		api.post_tx(m, &slate)?;
 		info!("Posted transaction");
 		return Ok(());
 	})?;
@@ -934,7 +930,6 @@ where
 pub struct RepostArgs {
 	pub id: u32,
 	pub dump_file: Option<String>,
-	pub fluff: bool,
 }
 
 pub fn repost<L, C, K>(
@@ -975,7 +970,7 @@ where
 					return Ok(());
 				}
 
-				match api.post_tx(m, &stored_tx_slate, args.fluff) {
+				match api.post_tx(m, &stored_tx_slate) {
 					Ok(_) => info!("Reposted transaction at {}", args.id),
 					Err(e) => error!("Could not repost transaction at {}. Reason: {}", args.id, e),
 				}

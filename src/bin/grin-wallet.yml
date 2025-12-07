@@ -1,448 +1,398 @@
-name: grin-wallet
-about: Reference Grin Wallet
-author: The Grin Team
+name: lurker-wallet
+about: Lurker Wallet — Pure RandomX + Yggdrasil + Slatepack
+author: Lurker Developers
 
 args:
   - testnet:
-      help: Run grin against the Testnet (as opposed to mainnet)
+      help: Run against Lurker Testnet
       long: testnet
       takes_value: false
   - usernet:
-      help: Run grin as a local-only network. Doesn't block peer connections but will not connect to any peer or seed
+      help: Run as local-only network (no outbound connections)
       long: usernet
       takes_value: false
   - pass:
-      help: Wallet passphrase used to encrypt wallet seed
+      help: Wallet password
       short: p
       long: pass
       takes_value: true
   - account:
-      help: Wallet account to use for this operation
+      help: Wallet account to use
       short: a
       long: account
       takes_value: true
       default_value: default
   - top_level_dir:
-      help: Top directory in which wallet files are stored (location of 'grin-wallet.toml')
+      help: Wallet data directory (location of lurker-wallet.toml)
       short: t
       long: top_level_dir
       takes_value: true
   - show_spent:
-      help: Show spent outputs on wallet output commands
+      help: Show spent outputs
       short: s
       long: show_spent
       takes_value: false
   - api_server_address:
-      help: Api address of running node on which to check inputs and post transactions
+      help: Node API address for input checking and tx posting
       short: r
       long: api_server_address
       takes_value: true
+
 subcommands:
   - cli:
-      about: Start the wallet in interactive CLI mode (EXPERIMENTAL and UNDER DEVELOPMENT)
+      about: Interactive CLI mode (EXPERIMENTAL)
+
   - account:
-      about: List wallet accounts or create a new account
+      about: List accounts or create new one
       args:
         - create:
-            help: Create a new wallet account with provided name
+            help: Create new account with given name
             short: c
             long: create
             takes_value: true
+
   - rewind_hash:
-      about: Return the hash of the wallet root public key.
+      about: Show wallet rewind hash
+
   - scan_rewind_hash:
-      about: Scan the UTXO set and return the outputs and the total of grin owned by a view wallet rewind hash.
+      about: Scan chain using a view wallet's rewind hash
       args:
         - rewind_hash:
-              help: Rewind hash of the wallet to be scanned in order to retrieve all the outputs and balance.
-              index: 1
+            help: Rewind hash to scan
+            index: 1
         - start_height:
-            help: If given, the first block from which to start the scan (default 1)
+            help: Start scanning from this height
             short: h
             long: start_height
             takes_value: true
         - backwards_from_tip:
-            help: If given, start scan b blocks back from the tip
+            help: Scan N blocks back from tip
             short: b
-            long: backwards_from_tip,
+            long: backwards_from_tip
             takes_value: true
+
   - listen:
-      about: Runs the wallet in listening mode waiting for transactions
+      about: Start wallet listener (receive transactions)
       args:
         - port:
-            help: Port on which to run the wallet listener
+            help: Port to listen on
             short: l
             long: port
             takes_value: true
-        - no_tor:
-            help: Don't start Tor listener when starting HTTP listener
-            short: n
-            long: no_tor
-            takes_value: false
-        - bridge:
-            help: Enable bridge relay with TOR listener
-            short: g
-            long: bridge
-            takes_value: true
+
   - owner_api:
-      about: Runs the wallet's local web API
+      about: Start Owner API server
       args:
         - port:
-            help: Port on which to run the wallet owner listener
+            help: Owner API port
             short: l
             long: port
             takes_value: true
         - run_foreign:
-            help: Also run the Foreign API
+            help: Also start Foreign API
             long: run_foreign
             takes_value: false
+
   - send:
-      about: Builds a transaction to send coins and sends to the recipient via the Slatepack workflow
+      about: Send coins via Slatepack
       args:
         - amount:
-            help: Number of coins to send with optional fraction, e.g. 12.423. Keyword 'max' will send maximum amount.
+            help: Amount to send (e.g. 12.34). Use 'max' for all spendable
             index: 1
         - minimum_confirmations:
-            help: Minimum number of confirmations required for an output to be spendable
+            help: Minimum confirmations required
             short: c
             long: min_conf
             default_value: "10"
             takes_value: true
         - selection_strategy:
-            help: Coin/Output selection strategy.
+            help: Output selection: 'all' or 'smallest'
             short: s
             long: selection
-            possible_values:
-              - all
-              - smallest
+            possible_values: [all, smallest]
             default_value: smallest
             takes_value: true
         - estimate_selection_strategies:
-            help: Estimates all possible Coin/Output selection strategies.
+            help: Show all possible selection strategies
             short: e
             long: estimate-selection
         - late_lock:
-            help: EXPERIMENTAL - Do not lock the coins immediately, instead only lock them during finalization.
+            help: EXPERIMENTAL — Lock outputs only at finalize
             short: l
             long: late-lock
         - change_outputs:
-            help: Number of change outputs to generate (mainly for testing)
+            help: Number of change outputs (testing)
             short: o
             long: change_outputs
             default_value: "1"
             takes_value: true
         - dest:
-            help: Intended recipient's Slatepack Address (or http listener address (DEPRECATED))
+            help: Recipient Slatepack address
             short: d
             long: dest
             takes_value: true
         - no_payment_proof:
-            help: Don't request a payment proof, even if the Recipient's Slatepack address is provided in the -dest argument
+            help: Don't request payment proof
             short: n
             long: no_payment_proof
-        - fluff:
-            help: Fluff the transaction (ignore Dandelion relay protocol)
-            short: f
-            long: fluff
         - stored_tx:
-            help: If present, use the previously stored Unconfirmed transaction with given id
+            help: Use stored unconfirmed tx
             short: t
             long: stored_tx
             takes_value: true
         - ttl_blocks:
-            help: If present, the number of blocks from the current after which wallets should refuse to process transactions further
+            help: Transaction expires after N blocks
             short: b
             long: ttl_blocks
             takes_value: true
-        - manual:
-            help: If present, don't attempt to send the resulting Slatepack via TOR
-            short: m
-            long: manual
         - outfile:
-            help: If present, overrides the filename and location of the output Slatepack file.
+            help: Custom output file
             short: u
             long: outfile
             takes_value: true
-        - bridge:
-            help: Enable tor bridge relay when sending via Slatepack workflow
-            short: g
-            long: bridge
-            takes_value: true
         - slatepack_qr:
-            help: Show slatepack data as QR code
+            help: Show as QR code
             short: q
             long: slatepack_qr
         - amount_includes_fee:
-            help: Transaction amount includes transaction fee. Recipient will receive (amount - fee).
+            help: Amount includes fee (recipient gets amount - fee)
             long: amount_includes_fee
-  - unpack:
-      about: Unpack and display an armored Slatepack Message, decrypting if possible
-      args:
-        - input:
-            help: File containing a Slatepack Message
-            short: i
-            long: input
-            takes_value: true
+
   - receive:
-      about: Processes a Slatepack Message to accept a transfer from a sender
+      about: Receive a transaction from a Slatepack
       args:
         - input:
-            help: File containing a Slatepack Message
+            help: Input Slatepack file
             short: i
             long: input
             takes_value: true
-        - manual:
-            help: If present, don't attempt to send the resulting Slatepack via TOR
-            short: m
-            long: manual
         - outfile:
-            help: If present, overrides the filename and location of the output Slatepack file.
+            help: Output file override
             short: u
             long: outfile
             takes_value: true
-        - bridge:
-            help: Enable tor bridge relay when receiving via Slatepack workflow
-            short: g
-            long: bridge
-            takes_value: true
         - slatepack_qr:
-            help: Show slatepack data as QR code
+            help: Show as QR code
             short: q
             long: slatepack_qr
+
   - finalize:
-      about: Processes a Slatepack Message to finalize a transfer.
+      about: Finalize a transaction
       args:
         - input:
-            help: Partial transaction to process, expects the receiver's transaction file.
+            help: Input Slatepack file
             short: i
             long: input
             takes_value: true
-        - fluff:
-            help: Fluff the transaction (ignore Dandelion relay protocol)
-            short: f
-            long: fluff
         - nopost:
-            help: Do not post the transaction.
+            help: Don't post to chain
             short: n
             long: nopost
         - outfile:
-            help: If present, overrides the filename and location of the output Slatepack file.
+            help: Output file override
             short: u
             long: outfile
             takes_value: true
         - slatepack_qr:
-            help: Show slatepack data as QR code
+            help: Show as QR code
             short: q
             long: slatepack_qr
+
   - invoice:
-      about: Initialize an invoice transaction, outputting a Slatepack Message with the result
+      about: Create invoice transaction
       args:
         - amount:
-            help: Number of coins to invoice  with optional fraction, e.g. 12.423
+            help: Amount to invoice
             index: 1
         - dest:
-            help: Intended recipient's Slatepack Address
+            help: Payer's Slatepack address
             short: d
             long: dest
             takes_value: true
         - outfile:
-            help: If present, overrides the filename and location of the output Slatepack file.
+            help: Output file override
             short: u
             long: outfile
             takes_value: true
         - slatepack_qr:
-            help: Show slatepack data as QR code
+            help: Show as QR code
             short: q
             long: slatepack_qr
+
   - pay:
-      about: Spend coins to pay the provided invoice transaction
+      about: Pay an invoice
       args:
         - minimum_confirmations:
-            help: Minimum number of confirmations required for an output to be spendable
+            help: Minimum confirmations
             short: c
             long: min_conf
             default_value: "10"
             takes_value: true
         - selection_strategy:
-            help: Coin/Output selection strategy.
+            help: Output selection strategy
             short: s
             long: selection
-            possible_values:
-              - all
-              - smallest
+            possible_values: [all, smallest]
             default_value: smallest
             takes_value: true
         - estimate_selection_strategies:
-            help: Estimates all possible Coin/Output selection strategies.
+            help: Show all strategies
             short: e
             long: estimate-selection
         - dest:
-            help: The Slatepack address of the invoicing party's wallet (will override the address contained in the Slatepack)
+            help: Override invoice sender address
             short: d
             long: dest
             takes_value: true
         - input:
-            help: Incoming Slatepack Message to process
+            help: Invoice Slatepack file
             short: i
             long: input
             takes_value: true
         - ttl_blocks:
-            help: If present, the number of blocks from the current after which wallets should refuse to process transactions further
+            help: Transaction TTL
             short: b
             long: ttl_blocks
             takes_value: true
-        - manual:
-            help: If present, don't attempt to send the resulting Slatepack via TOR
-            short: m
-            long: manual
         - outfile:
-            help: If present, overrides the filename and location of the output Slatepack file.
+            help: Output file override
             short: u
             long: outfile
             takes_value: true
-        - bridge:
-            help: Enable tor bridge relay when paying invoice.
-            short: g
-            long: bridge
-            takes_value: true
         - slatepack_qr:
-            help: Show slatepack data as QR code
+            help: Show as QR code
             short: q
             long: slatepack_qr
+
   - outputs:
-      about: Raw wallet output info (list of outputs)
+      about: Show wallet outputs
+
   - txs:
-      about: Display transaction information
+      about: Show transactions
       args:
         - id:
-            help: If specified, display transaction with given Id and all associated Inputs/Outputs
+            help: Transaction ID
             short: i
             long: id
             takes_value: true
         - txid:
-            help: If specified, display transaction with given TxID UUID and all associated Inputs/Outputs
+            help: Transaction UUID
             short: t
             long: txid
             takes_value: true
         - count:
-            help: Maximum number of transactions to show
+            help: Max transactions to show
             short: c
             long: count
             takes_value: true
+
   - post:
-      about: Posts a finalized transaction to the chain
+      about: Post transaction to chain
       args:
         - input:
-            help: File name of the transaction to post
+            help: Input Slatepack file
             short: i
             long: input
             takes_value: true
-        - fluff:
-            help: Fluff the transaction (ignore Dandelion relay protocol)
-            short: f
-            long: fluff
+
   - repost:
-      about: Reposts a stored, completed but unconfirmed transaction to the chain, or dumps it to a file
+      about: Repost or dump stored transaction
       args:
         - id:
-            help: Transaction ID containing the stored completed transaction
+            help: Transaction ID
             short: i
             long: id
             takes_value: true
         - dumpfile:
-            help: File name to duMp the transaction to instead of posting
+            help: Dump to file instead of posting
             short: m
             long: dumpfile
             takes_value: true
-        - fluff:
-            help: Fluff the transaction (ignore Dandelion relay protocol)
-            short: f
-            long: fluff
+
   - cancel:
-      about: Cancels a previously created transaction, freeing previously locked outputs for use again
+      about: Cancel transaction
       args:
         - id:
-            help: The ID of the transaction to cancel
+            help: Transaction ID
             short: i
             long: id
             takes_value: true
         - txid:
-            help: The TxID UUID of the transaction to cancel
+            help: Transaction UUID
             short: t
             long: txid
             takes_value: true
+
   - info:
-      about: Basic wallet contents summary
+      about: Show wallet summary
       args:
         - minimum_confirmations:
-            help: Minimum number of confirmations required for an output to be spendable
+            help: Minimum confirmations
             short: c
             long: min_conf
             default_value: "10"
             takes_value: true
+
   - init:
-      about: Initialize a new wallet seed file and database
+      about: Create new wallet
       args:
         - here:
-            help: Create wallet files in the current directory instead of the default ~/.grin directory
+            help: Create wallet in current directory
             short: h
             long: here
-            takes_value: false
         - short_wordlist:
-            help: Generate a 12-word recovery phrase/seed instead of default 24
+            help: Use 12-word seed
             short: s
             long: short_wordlist
-            takes_value: false
         - recover:
-            help: Initialize new wallet using a recovery phrase
+            help: Recover from seed
             short: r
             long: recover
-            takes_value: false
-  - open:
-      about: Opens a wallet (interactive mode only)
-  - close:
-      about: Closes the wallet (interactive mode only)
+
   - recover:
-      about: Displays a recovery phrase for the wallet. (use `init -r` to perform recovery)
+      about: Show recovery phrase
+
   - address:
-      about: Display the wallet's Slatepack address
+      about: Show Slatepack address
+
   - scan:
-      about: Checks a wallet's outputs against a live node, repairing and restoring missing outputs if required
+      about: Repair wallet outputs
       args:
         - delete_unconfirmed:
-            help: Delete any unconfirmed outputsm unlock any locked outputs and delete associated transactions while doing the check.
+            help: Delete unconfirmed outputs
             short: d
             long: delete_unconfirmed
-            takes_value: false
         - start_height:
-            help: If given, the first block from which to start the scan (default 1)
+            help: Start scan from height
             short: h
             long: start_height
             takes_value: true
         - backwards_from_tip:
-            help: If given, start scan b blocks back from the tip
+            help: Scan N blocks back from tip
             short: b
-            long: backwards_from_tip,
+            long: backwards_from_tip
             takes_value: true
+
   - export_proof:
-      about: Export a payment proof from a completed transaction
+      about: Export payment proof
       args:
-          - output:
-              help: Output proof file
-              index: 1
-          - id:
-              help: If specified, retrieve the proof for the given transaction ID
-              short: i
-              long: id
-              takes_value: true
-          - txid:
-              help: If specified, retrieve the proof for the given Slate ID
-              short: t
-              long: txid
-              takes_value: true
+        - output:
+            help: Output file
+            index: 1
+        - id:
+            help: Transaction ID
+            short: i
+            long: id
+            takes_value: true
+        - txid:
+            help: Transaction UUID
+            short: t
+            long: txid
+            takes_value: true
+
   - verify_proof:
-      about: Verify a payment proof
+      about: Verify payment proof
       args:
-          - input:
-              help: Filename of a proof file
-              index: 1
+        - input:
+            help: Proof file
+            index: 1

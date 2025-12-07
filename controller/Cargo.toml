@@ -32,7 +32,7 @@ thiserror = "1"
 qr_code = "1.1.0"
 
 lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
-lurker_wallet_api = { path = "../api", version = "5.4.0-alpha.1" }
+lurker_wallet_api = { path = "../wallet_api", version = "5.4.0-alpha.1" }
 lurker_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
 lurker_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
 lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }

@@ -3,12 +3,12 @@
 use crate::api::{ApiServer, BasicAuthMiddleware, TLSConfig};
 
 use crate::api;
-use crate::api::owner::OwnerV3Helpers;
 use async_trait::async_trait;
 use hyper::body;
 use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, StatusCode};
+use lurker_wallet_api::owner::OwnerV3Helpers;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::future::Future;
@@ -20,7 +20,6 @@ use crate::libwallet::{
 	Error, NodeClient, NodeVersionInfo, Slate, SlatepackAddress, WalletInst, WalletLCProvider,
 	GRIN_BLOCK_HEADER_VERSION,
 };
-use lurker_api::Handler;
 
 use crate::util::secp::key::SecretKey;
 use crate::util::{from_hex, static_secp_instance, to_base64, Mutex};
@@ -38,6 +37,7 @@ use crate::apiwallet::{
 	ForeignCheckMiddlewareFn, ForeignRpc, Owner, OwnerRpc,
 };
 use easy_jsonrpc_mw;
+use easy_jsonrpc_mw::Handler;
 use easy_jsonrpc_mw::MaybeReply;
 
 use hyper::Error as HyperError;

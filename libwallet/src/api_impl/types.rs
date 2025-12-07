@@ -93,15 +93,13 @@ pub struct InitTxArgs {
 
 /// Send TX API Args, for convenience functionality that inits the transaction and sends
 /// in one go
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct InitTxSendArgs {
-	/// The destination, contents will depend on the particular method
+	/// The destination (slatepack address or file path)
 	pub dest: String,
-	/// Whether to post the transaction if the send and finalize were successful
+	/// Whether to post the transaction after finalizing
 	pub post_tx: bool,
-	/// Whether to use dandelion when posting. If false, skip the dandelion relay
-	pub fluff: bool,
-	/// If set, skip the Slatepack TOR send attempt
+	/// Skip Tor (always true in Lurker — Tor is gone)
 	pub skip_tor: bool,
 }
 
