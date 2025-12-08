@@ -1,7 +1,7 @@
 // integration/tests/simulnet.rs
 // Lurker — Dandelion removed forever. Yggdrasil + RandomX = true privacy.
 
-extern crate lurker_apiwallet as apiwallet;
+extern crate api_common as apiwallet;
 extern crate lurker_libwallet as libwallet;
 extern crate lurker_refwallet as wallet;
 extern crate lurker_wallet_config as wallet_config;
@@ -18,7 +18,7 @@ use self::wallet::controller;
 use self::wallet::lmdb_wallet::LMDBBackend;
 use self::wallet::{HTTPNodeClient, HTTPWalletCommAdapter};
 use self::wallet_config::WalletConfig;
-use lurker_api as api;
+use api_common as api;
 use lurker_core as core;
 use lurker_keychain as keychain;
 use lurker_p2p as p2p;

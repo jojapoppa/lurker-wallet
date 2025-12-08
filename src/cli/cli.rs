@@ -45,6 +45,13 @@ lazy_static! {
 	static ref STDIN_CONTENTS: Mutex<String> = Mutex::new(String::from(""));
 }
 
+use lurker_core::mesh::mesh_ip;
+println!("My private address: {}", mesh_ip());
+
+let mut mesh = MeshManager::new();
+let my_ip = mesh.start().await?;
+info!("Lurker CLI running on Yggdrasil: {}", my_ip);
+
 #[macro_export]
 macro_rules! cli_message_inline {
 	($fmt_string:expr, $( $arg:expr ),+) => {

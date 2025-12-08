@@ -309,7 +309,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<L, C, K> lurker_api::Handler for OwnerAPIHandlerV3<L, C, K>
+impl<L, C, K> api_common::Handler for OwnerAPIHandlerV3<L, C, K>
 where
 	L: WalletLCProvider<'static, C, K> + 'static + Send + Sync,
 	C: NodeClient + 'static + Send + Sync,
@@ -385,7 +385,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<L, C, K> lurker_api::Handler for ForeignAPIHandlerV2<L, C, K>
+impl<L, C, K> api_common::Handler for ForeignAPIHandlerV2<L, C, K>
 where
 	L: WalletLCProvider<'static, C, K> + 'static + Send + Sync,
 	C: NodeClient + 'static + Send + Sync,

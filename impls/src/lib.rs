@@ -29,11 +29,11 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
+use api_common as api;
 use libwallet::{
 	AcctPathMapping, Context, Error as LibWalletError, NodeClient, OutputData, ScannedBlockInfo,
 	TxLogEntry, WalletBackend, WalletInitStatus, WalletInst, WalletLCProvider,
 };
-use lurker_api as api;
 use lurker_chain as chain;
 use lurker_core as core;
 use lurker_keychain::{ExtKeychain, ExtKeychainPath, Identifier, Keychain};

@@ -49,7 +49,7 @@ lurker_core = { path = "../../lurker/core" }
 lurker_keychain = { path = "../../lurker/keychain" }
 lurker_util = { path = "../../lurker/util" }
 lurker_chain = { path = "../../lurker/chain" }
-lurker_api = { path = "../../lurker/api" }
+api_common = { path = "../../lurker/api_common" }
 lurker_store = { path = "../../lurker/store" }
 
 #####

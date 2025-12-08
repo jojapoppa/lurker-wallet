@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate lurker_apiwallet as apiwallet;
+extern crate api_common as apiwallet;
 extern crate lurker_libwallet as libwallet;
 extern crate lurker_refwallet as wallet;
 extern crate lurker_wallet_config as wallet_config;
@@ -21,8 +21,8 @@ use self::keychain::Keychain;
 use self::util::Mutex;
 use self::wallet::{HTTPNodeClient, HTTPWalletCommAdapter, LMDBBackend};
 use self::wallet_config::WalletConfig;
+use api_common as api;
 use blake2_rfc as blake2;
-use lurker_api as api;
 use lurker_core as core;
 use lurker_keychain as keychain;
 use lurker_p2p as p2p;

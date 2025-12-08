@@ -33,7 +33,7 @@ use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
 use lurker_wallet_libwallet::{NodeClient, WalletInfo, WalletInst};
 use util::secp::key::{PublicKey, SecretKey};
 
-use lurker_api as api;
+use api_common as api;
 use lurker_wallet::cmd::wallet_args;
 
 use serde::de::DeserializeOwned;

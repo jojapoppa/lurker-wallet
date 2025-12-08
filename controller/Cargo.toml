@@ -31,8 +31,8 @@ lazy_static = "1"
 thiserror = "1"
 qr_code = "1.1.0"
 
+api_common = { path = "../../lurker/api_common" }
 lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
-lurker_wallet_api = { path = "../wallet_api", version = "5.4.0-alpha.1" }
 lurker_wallet_impls = { path = "../impls", version = "5.4.0-alpha.1" }
 lurker_wallet_libwallet = { path = "../libwallet", version = "5.4.0-alpha.1" }
 lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
@@ -42,7 +42,6 @@ lurker_wallet_config = { path = "../config", version = "5.4.0-alpha.1" }
 lurker_core = { path = "../../lurker/core" }
 lurker_keychain = { path = "../../lurker/keychain" }
 lurker_util = { path = "../../lurker/util" }
-lurker_api = { path = "../../lurker/api" }
 lurker_chain = { path = "../../lurker/chain" }
 
 #####
