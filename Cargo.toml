@@ -16,8 +16,11 @@ name = "grin-wallet"
 path = "src/bin/grin-wallet.rs"
 
 [workspace]
-members = ["config", "controller", "impls", "libwallet", "util"]
+members = ["config", "controller", "impls", "libwallet", "util", "api_common"]
 exclude = ["integration"]
+
+[workspace.dependencies]
+api_common = { path = "../lurker/api_common" }
 
 [dependencies]
 bincode = "1"
@@ -36,14 +39,14 @@ semver = "0.10"
 rustyline = "6"
 lazy_static = "1"
 
-# lurker_wallet_api = { path = "../lurker/api_common", version = "5.4.0-alpha.1" }
 # lurker_wallet_impls = { path = "./impls", version = "5.4.0-alpha.1" }
 # lurker_wallet_libwallet = { path = "./libwallet", version = "5.4.0-alpha.1" }
 # lurker_wallet_controller = { path = "./controller", version = "5.4.0-alpha.1" }
 # lurker_wallet_config = { path = "./config", version = "5.4.0-alpha.1" }
 # lurker_wallet_util = { path = "./util", version = "5.4.0-alpha.1" }
 
-api_common = { path = "../lurker/api_common" }
+api_common = { workspace = true }
+
 lurker_wallet_impls = { path = "./impls" }
 lurker_wallet_libwallet = { path = "./libwallet" }
 lurker_wallet_controller = { path = "./controller" }

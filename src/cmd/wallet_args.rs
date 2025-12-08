@@ -18,6 +18,7 @@ use crate::config::GRIN_WALLET_DIR;
 use crate::util::file::get_first_line;
 use crate::util::secp::key::SecretKey;
 use crate::util::{Mutex, ZeroingString};
+use api_common::Owner;
 /// Argument parsing and error handling for wallet commands
 use clap::ArgMatches;
 use linefeed::terminal::Signal;
@@ -25,7 +26,6 @@ use linefeed::{Interface, ReadResult};
 use lurker_core as core;
 use lurker_core::core::amount_to_hr_string;
 use lurker_keychain as keychain;
-use lurker_wallet_api::Owner;
 use lurker_wallet_config::{config_file_exists, TorConfig, WalletConfig};
 use lurker_wallet_controller::{command, Error};
 use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};

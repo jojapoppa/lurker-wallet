@@ -24,10 +24,10 @@ use std::sync::Arc;
 use std::{env, fs};
 use util::{Mutex, ZeroingString};
 
+use api_common::{EncryptedRequest, EncryptedResponse, JsonId};
 use lurker_core::global::{self, ChainTypes};
 use lurker_keychain::ExtKeychain;
 use lurker_util::{from_hex, static_secp_instance};
-use lurker_wallet_api::{EncryptedRequest, EncryptedResponse, JsonId};
 use lurker_wallet_config::{GlobalWalletConfig, WalletConfig, GRIN_WALLET_DIR};
 use lurker_wallet_impls::{DefaultLCProvider, DefaultWalletImpl};
 use lurker_wallet_libwallet::{NodeClient, WalletInfo, WalletInst};

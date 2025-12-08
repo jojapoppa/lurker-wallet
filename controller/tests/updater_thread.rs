@@ -14,7 +14,7 @@
 //! Test a wallet repost command
 #[macro_use]
 extern crate log;
-extern crate lurker_wallet_api as api;
+extern crate api_common as api;
 extern crate lurker_wallet_controller as wallet;
 extern crate lurker_wallet_impls as impls;
 extern crate lurker_wallet_libwallet as libwallet;

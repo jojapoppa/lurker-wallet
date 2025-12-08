@@ -21,11 +21,11 @@ extern crate prettytable;
 extern crate log;
 #[macro_use]
 extern crate lazy_static;
+use api_common as apiwallet;
 use lurker_api as api;
 use lurker_core as core;
 use lurker_keychain as keychain;
 use lurker_util as util;
-use lurker_wallet_api as apiwallet;
 use lurker_wallet_config as config;
 use lurker_wallet_impls as impls;
 use lurker_wallet_libwallet as libwallet;

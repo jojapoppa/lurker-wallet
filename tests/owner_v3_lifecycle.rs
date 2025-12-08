@@ -19,7 +19,7 @@ extern crate log;
 
 extern crate lurker_wallet;
 
-use lurker_wallet_api::{ECDHPubkey, JsonId};
+use api_common::{ECDHPubkey, JsonId};
 use lurker_wallet_impls::test_framework::{self, LocalWalletClient, WalletProxy};
 
 use clap::App;

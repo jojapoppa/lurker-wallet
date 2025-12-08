@@ -3,12 +3,12 @@
 use crate::api::{ApiServer, BasicAuthMiddleware, TLSConfig};
 
 use crate::api;
+use api_common::owner::OwnerV3Helpers;
 use async_trait::async_trait;
 use hyper::body;
 use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, StatusCode};
-use lurker_wallet_api::owner::OwnerV3Helpers;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::future::Future;
@@ -23,8 +23,8 @@ use crate::libwallet::{
 
 use crate::util::secp::key::SecretKey;
 use crate::util::{from_hex, static_secp_instance, to_base64, Mutex};
+use api_common::JsonId;
 use futures::channel::oneshot;
-use lurker_wallet_api::JsonId;
 
 use serde_json;
 use std::collections::HashMap;

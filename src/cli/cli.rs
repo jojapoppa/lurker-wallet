@@ -18,7 +18,7 @@ use crate::util::Mutex;
 use clap::App;
 //use colored::Colorize;
 use lurker_keychain as keychain;
-use lurker_wallet_api::Owner;
+use api_common::Owner;
 use lurker_wallet_config::{TorConfig, WalletConfig};
 use lurker_wallet_controller::command::GlobalArgs;
 use lurker_wallet_controller::Error;
