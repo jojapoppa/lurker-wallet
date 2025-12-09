@@ -1,26 +1,18 @@
-// lurker-wallet/src/owner_rpc_impl.rs
-// LURKER — WALLET IMPLEMENTATION OF OWNER RPC — FULL, COMPLETE, PURE
+// lurker-wallet/impls/src/owner_rpc_impl.rs
+// LURKER — MINIMAL OWNER RPC — SINGLE ACCOUNT ONLY
 
 use crate::owner::Owner;
 use api_common::owner_rpc::OwnerRpc;
+use api_common::types::{ECDHPubkey, Ed25519SecretKey, Error, Token};
 use lurker_keychain::Keychain;
-
-use crate::libwallet::{
-	AcctPathMapping, Amount, BlockFees, BuiltOutput, Error, InitTxArgs, IssueInvoiceTxArgs,
-	NodeClient, NodeHeightResult, OutputCommitMapping, PaymentProof, RetrieveTxQueryArgs, Slate,
-	SlateVersion, Slatepack, SlatepackAddress, StatusMessage, TxLogEntry, VersionedSlate,
-	ViewWallet, WalletInfo, WalletLCProvider,
-};
-use api_common::types::{ECDHPubkey, Ed25519SecretKey, Token};
-use lurker_keychain::keychain;
-
-use crate::util::{from_hex, static_secp_instance, ZeroingString};
-use lurker_core::core::OutputFeatures;
-use lurker_core::global;
-use lurker_util::logger::LoggingConfig;
-use lurker_wallet_config::WalletConfig;
 use lurker_wallet_libwallet::mwixnet::SwapReq;
+use lurker_wallet_libwallet::{
+	Amount, BlockFees, BuiltOutput, InitTxArgs, IssueInvoiceTxArgs, NodeClient, NodeHeightResult,
+	PaymentProof, Slate, SlateVersion, Slatepack, SlatepackAddress, StatusMessage, TxLogEntry,
+	VersionedSlate, ViewWallet, WalletInfo, WalletLCProvider,
+};
 use rand::thread_rng;
+use std::time::Duration;
 use uuid::Uuid;
 
 impl<'a, L, C, K> OwnerRpc for Owner<'a, L, C, K>
@@ -29,151 +21,122 @@ where
 	C: NodeClient + Sync + Send + 'a,
 	K: Keychain + Sync + Send + 'a,
 {
-	fn accounts(&self, token: Token) -> Result<Vec<AcctPathMapping>, Error> {
-		crate::owner::accounts(&mut **self.wallet_inst.lock())
+	// Lurker has only one account — "default"
+	fn accounts(&self, _token: Token) -> Result<Vec<AcctPathMapping>, Error> {
+		Ok(vec![AcctPathMapping {
+			path: "default".to_string(),
+			label: "Default Account".to_string(),
+		}])
 	}
 
-	fn create_account_path(&self, token: Token, label: String) -> Result<Identifier, Error> {
-		owner::create_account_path(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&label,
-		)
+	// These are intentionally removed — Lurker does not support multiple accounts
+	fn create_account_path(&self, _token: Token, _label: String) -> Result<Identifier, Error> {
+		Err(Error::GenericError(
+			"Multiple accounts not supported".into(),
+		))
 	}
 
-	fn set_active_account(&self, token: Token, label: String) -> Result<(), Error> {
-		owner::set_active_account(&mut **self.wallet_inst.lock(), &label).map_err(Error::from)
+	fn set_active_account(&self, _token: Token, _label: String) -> Result<(), Error> {
+		Err(Error::GenericError(
+			"Multiple accounts not supported".into(),
+		))
 	}
 
 	fn retrieve_outputs(
 		&self,
-		token: Token,
+		_token: Token,
 		include_spent: bool,
 		refresh_from_node: bool,
 		tx_id: Option<u32>,
 	) -> Result<(bool, Vec<OutputCommitMapping>), Error> {
-		owner::retrieve_outputs(
-			self.wallet_inst.clone(),
-			token.keychain_mask.as_ref(),
-			&None,
-			refresh_from_node,
-			include_spent,
-			tx_id,
-		)
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
+		owner::retrieve_outputs(&mut **w, None, refresh_from_node, include_spent, tx_id)
 	}
 
 	fn retrieve_txs(
 		&self,
-		token: Token,
+		_token: Token,
 		refresh_from_node: bool,
 		tx_id: Option<u32>,
 		tx_slate_id: Option<Uuid>,
 	) -> Result<(bool, Vec<TxLogEntry>), Error> {
-		owner::retrieve_txs(
-			self.wallet_inst.clone(),
-			token.keychain_mask.as_ref(),
-			&None,
-			refresh_from_node,
-			tx_id,
-			tx_slate_id,
-			None,
-		)
-	}
-
-	fn query_txs(
-		&self,
-		token: Token,
-		refresh_from_node: bool,
-		query: RetrieveTxQueryArgs,
-	) -> Result<(bool, Vec<TxLogEntry>), Error> {
-		owner::retrieve_txs(
-			self.wallet_inst.clone(),
-			token.keychain_mask.as_ref(),
-			&None,
-			refresh_from_node,
-			None,
-			None,
-			Some(query),
-		)
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
+		owner::retrieve_txs(&mut **w, None, refresh_from_node, tx_id, tx_slate_id)
 	}
 
 	fn retrieve_summary_info(
 		&self,
-		token: Token,
+		_token: Token,
 		refresh_from_node: bool,
 		minimum_confirmations: u64,
 	) -> Result<(bool, WalletInfo), Error> {
-		owner::retrieve_summary_info(
-			self.wallet_inst.clone(),
-			token.keychain_mask.as_ref(),
-			&None,
-			refresh_from_node,
-			minimum_confirmations,
-		)
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
+		owner::retrieve_summary_info(&mut **w, None, refresh_from_node, minimum_confirmations)
 	}
 
-	fn init_send_tx(&self, token: Token, args: InitTxArgs) -> Result<VersionedSlate, Error> {
-		let w_lock = self.wallet_inst.lock();
-		let mut lc = w_lock.lc_provider()?;
+	fn init_send_tx(&self, _token: Token, args: InitTxArgs) -> Result<VersionedSlate, Error> {
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		let _ = w.keychain(token.keychain_mask.as_ref())?;
-		let slate = owner::init_send_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
+		let slate = owner::init_send_tx(&mut **w, None, args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
 
 	fn issue_invoice_tx(
 		&self,
-		token: Token,
+		_token: Token,
 		args: IssueInvoiceTxArgs,
 	) -> Result<VersionedSlate, Error> {
-		let w_lock = self.wallet_inst.lock();
-		let mut lc = w_lock.lc_provider()?;
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		let slate = owner::issue_invoice_tx(&mut **w, token.keychain_mask.as_ref(), args, true)?;
+		let slate = owner::issue_invoice_tx(&mut **w, None, args, true)?;
 		Ok(VersionedSlate::into_version(slate, SlateVersion::V4)?)
 	}
 
 	fn process_invoice_tx(
 		&self,
-		token: Token,
+		_token: Token,
 		slate: VersionedSlate,
 		args: InitTxArgs,
 	) -> Result<VersionedSlate, Error> {
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let inner: Slate = slate.into();
-		let out = owner::process_invoice_tx(
-			self.wallet_inst.lock().as_mut(),
-			token.keychain_mask.as_ref(),
-			&inner,
-			args,
-			true,
-		)?;
+		let out = owner::process_invoice_tx(&mut **w, None, &inner, args, true)?;
 		Ok(VersionedSlate::into_version(out, SlateVersion::V4)?)
 	}
 
-	fn tx_lock_outputs(&self, token: Token, slate: VersionedSlate) -> Result<(), Error> {
-		let w_lock = self.wallet_inst.lock();
-		let mut lc = w_lock.lc_provider()?;
+	fn tx_lock_outputs(&self, _token: Token, slate: VersionedSlate) -> Result<(), Error> {
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
 		let inner: Slate = slate.into();
-		owner::tx_lock_outputs(&mut **w, token.keychain_mask.as_ref(), &inner)
+		owner::tx_lock_outputs(&mut **w, None, &inner)
 	}
 
-	fn finalize_tx(&self, token: Token, slate: VersionedSlate) -> Result<VersionedSlate, Error> {
-		let w_lock = self.wallet_inst.lock();
-		let mut lc = w_lock.lc_provider()?;
+	fn finalize_tx(&self, _token: Token, slate: VersionedSlate) -> Result<VersionedSlate, Error> {
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
 		let mut inner: Slate = slate.into();
-		let finalized = owner::finalize_tx(&mut **w, token.keychain_mask.as_ref(), &mut inner)?;
+		let finalized = owner::finalize_tx(&mut **w, None, &mut inner)?;
 		Ok(VersionedSlate::into_version(finalized, SlateVersion::V4)?)
 	}
 
-	fn post_tx(&self, token: Token, slate: VersionedSlate, fluff: bool) -> Result<(), Error> {
+	fn post_tx(&self, _token: Token, slate: VersionedSlate, fluff: bool) -> Result<(), Error> {
 		let inner: Slate = slate.into();
 		let client = {
 			let w_lock = self.wallet_inst.lock();
 			let mut lc = w_lock.lc_provider()?;
 			let inst = lc.wallet_inst()?;
-			let _ = inst.keychain(token.keychain_mask.as_ref())?;
 			inst.w2n_client().clone()
 		};
 		let tx = inner
@@ -185,17 +148,14 @@ where
 
 	fn cancel_tx(
 		&self,
-		token: Token,
+		_token: Token,
 		tx_id: Option<u32>,
 		tx_slate_id: Option<Uuid>,
 	) -> Result<(), Error> {
-		owner::cancel_tx(
-			self.wallet_inst.clone(),
-			token.keychain_mask.as_ref(),
-			&None,
-			tx_id,
-			tx_slate_id,
-		)
+		let mut w = self.wallet_inst.lock();
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
+		owner::cancel_tx(&mut **w, tx_id, tx_slate_id)
 	}
 
 	fn get_stored_tx(
