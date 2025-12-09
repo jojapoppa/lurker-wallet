@@ -3,6 +3,7 @@
 
 use crate::owner::Owner;
 use api_common::owner_rpc::OwnerRpc;
+use lurker_keychain::Keychain;
 
 use crate::libwallet::{
 	AcctPathMapping, Amount, BlockFees, BuiltOutput, Error, InitTxArgs, IssueInvoiceTxArgs,
@@ -22,14 +23,14 @@ use lurker_wallet_libwallet::mwixnet::SwapReq;
 use rand::thread_rng;
 use uuid::Uuid;
 
-impl<L, C, K> OwnerRpc for Owner<L, C, K>
+impl<'a, L, C, K> OwnerRpc for Owner<'a, L, C, K>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: Keychain + 'static,
+	L: WalletLCProvider<'a, C, K> + Sync + Send + 'a,
+	C: NodeClient + Sync + Send + 'a,
+	K: Keychain + Sync + Send + 'a,
 {
 	fn accounts(&self, token: Token) -> Result<Vec<AcctPathMapping>, Error> {
-		owner::accounts(&mut **self.wallet_inst.lock())
+		crate::owner::accounts(&mut **self.wallet_inst.lock())
 	}
 
 	fn create_account_path(&self, token: Token, label: String) -> Result<Identifier, Error> {

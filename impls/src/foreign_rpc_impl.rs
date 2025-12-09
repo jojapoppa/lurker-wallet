@@ -2,10 +2,15 @@
 // LURKER — NODE IMPLEMENTATION OF FOREIGN RPC
 
 use crate::foreign::Foreign;
+use crate::CbData;
+use crate::NodeClient;
+use crate::Slate;
+use crate::SlateVersion;
+use crate::WalletLCProvider;
 use api_common::foreign_rpc::ForeignRpc;
-
+use api_common::types::{BlockFees, Error, VersionInfo, VersionedCoinbase, VersionedSlate};
 use api_common::types::{ECDHPubkey, Ed25519SecretKey, Token};
-use lurker_keychain::keychain;
+use lurker_keychain::Keychain;
 
 impl<'a, L, C, K> ForeignRpc for Foreign<'a, L, C, K>
 where
