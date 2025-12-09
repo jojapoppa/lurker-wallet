@@ -14,13 +14,13 @@
 
 //! Client functions, implementations of the NodeClient trait
 
-use crate::api::{self, LocatedTxKernel, OutputListing, OutputPrintable};
 use crate::client_utils::{Client, RUNTIME};
 use crate::core::core::{Transaction, TxKernel};
 use crate::libwallet;
 use crate::libwallet::{NodeClient, NodeVersionInfo};
 use crate::util::secp::pedersen;
 use crate::util::ToHex;
+use api_common::types::{LocatedTxKernel, OutputListing, OutputPrintable};
 use futures::stream::FuturesUnordered;
 use futures::TryStreamExt;
 use serde_json::json;
@@ -30,6 +30,7 @@ use std::net::SocketAddr;
 
 use super::resp_types::*;
 use crate::client_utils::json_rpc::*;
+use lurker_core::mesh::mesh_ip;
 
 const ENDPOINT: &str = "/v2/foreign";
 
@@ -43,19 +44,27 @@ pub struct HTTPNodeClient {
 
 impl HTTPNodeClient {
 	/// Create a new client that will communicate with the given grin node
-	pub fn new(
-		node_url: &str,
-		node_api_secret: Option<String>,
-	) -> Result<HTTPNodeClient, libwallet::Error> {
-		Self::new_proxy(node_url, node_api_secret, None)
+	pub fn new(node_api_http_addr: &str, node_api_secret: Option<String>) -> HTTPNodeClient {
+		let ip = mesh_ip(); // Global IP set in main
+		let port = node_api_http_addr.split(':').last().unwrap_or("3413");
+		let ygg_url = format!("http://[{}]:{}", ip, port);
+		HTTPNodeClient {
+			client: Client::new(),
+			node_url: ygg_url,
+			node_api_secret,
+			node_version_info: None,
+		}
 	}
 
 	/// Create a new client with proxy
 	pub fn new_proxy(
-		node_url: &str,
+		node_api_http_addr: &str,
 		node_api_secret: Option<String>,
 		proxy: Option<(SocketAddr, &'static str)>,
 	) -> Result<HTTPNodeClient, libwallet::Error> {
+		let ip = mesh_ip(); // Global IP set in main
+		let port = node_api_http_addr.split(':').last().unwrap_or("3413");
+		let ygg_url = format!("http://[{}]:{}", ip, port);
 		let client = if let Some((a, s)) = proxy {
 			Client::with_proxy(a, s)
 		} else {
@@ -63,7 +72,7 @@ impl HTTPNodeClient {
 		};
 		Ok(HTTPNodeClient {
 			client: client.map_err(|_| libwallet::Error::Node)?,
-			node_url: node_url.to_owned(),
+			node_url: ygg_url,
 			node_api_secret: node_api_secret,
 			node_version_info: None,
 		})
@@ -79,11 +88,13 @@ impl HTTPNodeClient {
 		method: &str,
 		params: &serde_json::Value,
 	) -> Result<D, libwallet::Error> {
-		let url = format!("{}{}", self.node_url(), ENDPOINT);
+		let url = format!("{}{}", self.node_url, ENDPOINT);
 		let req = build_request(method, params);
-		let res = self
-			.client
-			.post::<Request, Response>(url.as_str(), self.node_api_secret(), &req);
+		let res = self.client.post::<Request, Response>(
+			url.as_str(),
+			self.node_api_secret.as_ref(),
+			&req,
+		);
 
 		match res {
 			Err(e) => {
@@ -175,11 +186,13 @@ impl NodeClient for HTTPNodeClient {
 		let method = "get_kernel";
 		let params = json!([excess.0.as_ref().to_hex(), min_height, max_height]);
 		// have to handle this manually since the error needs to be parsed
-		let url = format!("{}{}", self.node_url(), ENDPOINT);
+		let url = format!("{}{}", self.node_url, ENDPOINT);
 		let req = build_request(method, &params);
-		let res = self
-			.client
-			.post::<Request, Response>(url.as_str(), self.node_api_secret(), &req);
+		let res = self.client.post::<Request, Response>(
+			url.as_str(),
+			self.node_api_secret.as_ref(),
+			&req,
+		);
 
 		match res {
 			Err(e) => {
@@ -243,8 +256,8 @@ impl NodeClient for HTTPNodeClient {
 
 		trace!("Output query chunk size is: {}", chunk_size);
 
-		let url = format!("{}{}", self.node_url(), ENDPOINT);
-		let api_secret = self.node_api_secret();
+		let url = format!("{}{}", self.node_url, ENDPOINT);
+		let api_secret = self.node_api_secret.clone();
 		let cl = self.client.clone();
 		let task = async move {
 			let params: Vec<_> = query_params
@@ -335,8 +348,8 @@ impl NodeClient for HTTPNodeClient {
 		// We asked for unspent outputs via the api but defensively filter out spent outputs just in case.
 		for out in res.outputs.into_iter().filter(|out| out.spent == false) {
 			let is_coinbase = match out.output_type {
-				api::OutputType::Coinbase => true,
-				api::OutputType::Transaction => false,
+				OutputType::Coinbase => true,
+				OutputType::Transaction => false,
 			};
 			let range_proof = match out.range_proof() {
 				Ok(r) => r,

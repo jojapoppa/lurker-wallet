@@ -53,7 +53,6 @@ lurker_wallet_controller = { path = "./controller" }
 lurker_wallet_config = { path = "./config" }
 lurker_wallet_util = { path = "./util" }
 
-
 ##### Grin Imports
 
 lurker_core = { path = "../lurker/core" }

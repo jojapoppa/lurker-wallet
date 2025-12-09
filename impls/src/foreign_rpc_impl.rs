@@ -2,7 +2,10 @@
 // LURKER — NODE IMPLEMENTATION OF FOREIGN RPC
 
 use crate::foreign::Foreign;
-use api_common::ForeignRpc;
+use api_common::foreign_rpc::ForeignRpc;
+
+use api_common::types::{ECDHPubkey, Ed25519SecretKey, Token};
+use lurker_keychain::keychain;
 
 impl<'a, L, C, K> ForeignRpc for Foreign<'a, L, C, K>
 where

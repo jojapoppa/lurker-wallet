@@ -46,11 +46,19 @@ lazy_static! {
 }
 
 use lurker_core::mesh::mesh_ip;
-println!("My private address: {}", mesh_ip());
 
 let mut mesh = MeshManager::new();
-let my_ip = mesh.start().await?;
+let my_ip = match mesh.start().await {
+    Ok(ip) => ip,
+    Err(e) => {
+        error!("Failed to start Yggdrasil mesh: {}", e);
+        error!("Lurker requires Yggdrasil for privacy — exiting");
+        std::process::exit(1);
+    }
+
+lurker_core::mesh::set_mesh_ip(my_ip.clone());
 info!("Lurker CLI running on Yggdrasil: {}", my_ip);
+println!("My private address: {}", mesh_ip());
 
 #[macro_export]
 macro_rules! cli_message_inline {

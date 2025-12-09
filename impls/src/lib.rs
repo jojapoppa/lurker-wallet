@@ -48,6 +48,12 @@ use uuid::Uuid;
 pub use lurker_wallet_libwallet::*;
 pub type DefaultWalletImpl<'a, C> = SledBackend<'a, C, ExtKeychain>;
 
+pub mod foreign;
+pub mod owner;
+
+pub use foreign::Foreign;
+pub use owner::Owner;
+
 pub mod foreign_rpc_impl;
 pub mod owner_rpc_impl;
 

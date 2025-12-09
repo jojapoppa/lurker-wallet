@@ -1,7 +1,6 @@
 // impls/src/test_framework/testclient.rs
 // FINAL — compiles perfectly — Lurker wallet test client — CLEAN & PURE
 
-use crate::api::{self, LocatedTxKernel};
 use crate::chain::types::NoopAdapter;
 use crate::chain::Chain;
 use crate::core::global::{set_local_chain_type, ChainTypes};
@@ -9,6 +8,7 @@ use crate::libwallet;
 use crate::libwallet::api_impl::foreign;
 use crate::libwallet::slate_versions::v4::SlateV4;
 use crate::libwallet::{NodeClient, NodeVersionInfo, Slate, WalletInst, WalletLCProvider};
+use api_common::types::{LocatedTxKernel, OutputListing};
 use lurker_keychain::Keychain;
 
 use lurker_core::core::transaction::Transaction;
@@ -215,7 +215,7 @@ where
 		&mut self,
 		m: WalletProxyMessage,
 	) -> Result<WalletProxyMessage, libwallet::Error> {
-		let listing = api::OutputListing {
+		let listing = OutputListing {
 			last_retrieved_index: 0,
 			highest_index: 0,
 			outputs: vec![],
@@ -233,7 +233,7 @@ where
 		&mut self,
 		m: WalletProxyMessage,
 	) -> Result<WalletProxyMessage, libwallet::Error> {
-		let listing = api::OutputListing {
+		let listing = OutputListing {
 			last_retrieved_index: 0,
 			highest_index: 0,
 			outputs: vec![],

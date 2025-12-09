@@ -32,7 +32,6 @@ use std::path::PathBuf;
 use lurker_wallet::cmd;
 
 use lurker_core::mesh::mesh_ip;
-println!("My private address: {}", mesh_ip());
 use lurker_wallet::mesh::MeshManager;
 
 let mut mesh = MeshManager::new();
@@ -41,10 +40,12 @@ let my_ip = match mesh.start().await {
     Err(e) => {
         error!("Failed to start Yggdrasil mesh: {}", e);
         error!("Lurker requires Yggdrasil for privacy — exiting");
-        return 1;
+        std::process::exit(1);
     }
 };
+lurker_core::mesh::set_mesh_ip(my_ip.clone());
 info!("Lurker is PRIVATE on Yggdrasil: {}", my_ip);
+println!("My private address: {}", mesh_ip());
 
 // include build information
 pub mod built_info {

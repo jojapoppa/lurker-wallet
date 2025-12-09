@@ -1,17 +1,19 @@
 // lurker-wallet/src/owner_rpc_impl.rs
 // LURKER — WALLET IMPLEMENTATION OF OWNER RPC — FULL, COMPLETE, PURE
 
-use crate::keychain::Keychain;
+use crate::owner::Owner;
+use api_common::owner_rpc::OwnerRpc;
+
 use crate::libwallet::{
 	AcctPathMapping, Amount, BlockFees, BuiltOutput, Error, InitTxArgs, IssueInvoiceTxArgs,
 	NodeClient, NodeHeightResult, OutputCommitMapping, PaymentProof, RetrieveTxQueryArgs, Slate,
 	SlateVersion, Slatepack, SlatepackAddress, StatusMessage, TxLogEntry, VersionedSlate,
 	ViewWallet, WalletInfo, WalletLCProvider,
 };
-use crate::owner::Owner;
-use crate::types::{ECDHPubkey, Ed25519SecretKey, Token};
+use api_common::types::{ECDHPubkey, Ed25519SecretKey, Token};
+use lurker_keychain::keychain;
+
 use crate::util::{from_hex, static_secp_instance, ZeroingString};
-use api_common::OwnerRpc;
 use lurker_core::core::OutputFeatures;
 use lurker_core::global;
 use lurker_util::logger::LoggingConfig;
