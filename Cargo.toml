@@ -16,7 +16,7 @@ name = "grin-wallet"
 path = "src/bin/grin-wallet.rs"
 
 [workspace]
-members = ["config", "controller", "impls", "libwallet", "util", "api_common"]
+members = ["config", "controller", "impls", "libwallet", "util", "api_common", "lurker-watch-only", "lurker-hot-wallet"]
 exclude = ["integration"]
 
 [workspace.dependencies]

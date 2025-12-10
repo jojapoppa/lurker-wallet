@@ -1,0 +1,19 @@
+# CEX Integration
+
+Lurker has **no clearnet API** — by design.
+
+Two integration methods (both zero clearnet):
+
+# CLI option
+```bash
+lurker-wallet watch \
+  --node tcp://[200:1234::1]:3413 \
+  --pubkey 04aabbcc... 04ddeeff...
+
+# Library option
+let watcher = LurkerWatcher::new("tcp://[200:...]:3413", pubkeys)?;
+for payment in watcher.stream_payments() {
+    credit_user(payment.amount);
+}
+
+

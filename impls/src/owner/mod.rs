@@ -40,25 +40,29 @@ where
 
 	pub fn init_send_tx(&self, args: InitTxArgs) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::tx::create_send_tx(&mut **w, self.keychain_mask.as_ref(), args)
 	}
 
 	pub fn issue_invoice_tx(&self, args: IssueInvoiceTxArgs) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::tx::create_invoice_tx(&mut **w, self.keychain_mask.as_ref(), args)
 	}
 
 	pub fn finalize_tx(&self, slate: &Slate) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::finalize::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate)
 	}
 
 	pub fn post_tx(&self, slate: &Slate, fluff: bool) -> Result<(), Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		let tx = slate.tx_or_err()?;
 		w.w2n_client().post_tx(tx, fluff)?;
 		Ok(())
@@ -66,13 +70,15 @@ where
 
 	pub fn get_wallet_info(&self) -> Result<WalletInfo, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		updater::refresh_wallet_info(&mut **w, self.keychain_mask.as_ref())
 	}
 
 	pub fn get_transactions(&self) -> Result<Vec<TxLogEntry>, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		Ok(updater::retrieve_txs(&mut **w, self.keychain_mask.as_ref(), None, None)?.1)
 	}
 

@@ -35,13 +35,18 @@ where
 		}
 	}
 
-	pub fn check_version(&self) -> Result<(), Error> {
-		Ok(()) // Lurker has no version negotiation
+	pub fn check_version(&self) -> Result<VersionInfo, Error> {
+		Ok(VersionInfo {
+			node_version: "Lurker".to_string(),
+			block_header_version: 1,
+			verified: Some(true),
+		})
 	}
 
 	pub fn build_coinbase(&self, block_fees: &BlockFees) -> Result<CbData, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::build::build_coinbase(&mut **w, self.keychain_mask.as_ref(), block_fees)
 	}
 
@@ -52,13 +57,15 @@ where
 		_dest: Option<String>,
 	) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::receive::receive_tx(&mut **w, self.keychain_mask.as_ref(), slate, dest_acct_name)
 	}
 
 	pub fn finalize_tx(&self, slate: &Slate, _noop: bool) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
-		let w = w.wallet_inst()?;
+		let mut lc = w.lc_provider()?;
+		let w = lc.wallet_inst()?;
 		internal::finalize::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate)
 	}
 }

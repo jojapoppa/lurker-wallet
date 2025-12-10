@@ -1,0 +1,7 @@
+[package]
+name = "lurker-hot-wallet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+uniffi = "0.25"

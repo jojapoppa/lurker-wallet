@@ -2,6 +2,17 @@ name: lurker-wallet
 about: Lurker Wallet — Pure RandomX + Yggdrasil + Slatepack
 author: Lurker Developers
 
+watch:
+  about: Watch for payments over the Yggdrasil mesh (CEX-friendly)
+  args:
+    - node:
+        help: Node URL (e.g. tcp://[200:1234::1]:3413)
+        takes_value: true
+    - pubkey:
+        help: Public key(s) to watch (hex)
+        multiple: true
+        required: true
+
 args:
   - testnet:
       help: Run against Lurker Testnet

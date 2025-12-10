@@ -1,0 +1,22 @@
+# Lurker CEX Integration
+
+Zero clearnet. Zero HTTP. Zero certificates.
+
+
+# CLI Option: send coins via the CLI Interface
+
+lurker-wallet send --raw-tx 04aabbcc... --node tcp://[200:1234::1]:3413
+
+# C/C++ Option: call via C/C++
+
+std::string txid = lurker_send_lurker(
+    "tcp://[200:1234::1]:3413",
+    "a1b2c3d4...", 
+    "lurker1xyz...", 
+    1000000000, 
+    1000000
+);
+
+#include "lurker_hot_wallet.h"
+lurker_send_lurker("tcp://[200:...]:3413", seed, address, amount, fee);
+

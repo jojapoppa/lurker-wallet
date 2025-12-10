@@ -3,6 +3,7 @@
 
 use crate::owner::Owner;
 use api_common::owner_rpc::OwnerRpc;
+use api_common::types::AcctPathMapping;
 use api_common::types::{ECDHPubkey, Ed25519SecretKey, Error, Token};
 use lurker_keychain::Keychain;
 use lurker_wallet_libwallet::mwixnet::SwapReq;
@@ -24,8 +25,8 @@ where
 	// Lurker has only one account — "default"
 	fn accounts(&self, _token: Token) -> Result<Vec<AcctPathMapping>, Error> {
 		Ok(vec![AcctPathMapping {
-			path: "default".to_string(),
-			label: "Default Account".to_string(),
+			path: Identifier::default(),          // ← correct
+			label: "Default Account".to_string(), // ← string is fine here
 		}])
 	}
 
