@@ -913,6 +913,7 @@ impl From<OutputFeatures> for OutputFeaturesV4 {
 		let index = match of {
 			OutputFeatures::Plain => 0,
 			OutputFeatures::Coinbase => 1,
+			OutputFeatures::ServiceProof => 1, // ← same as Coinbase — it's also a coinbase output
 		};
 		OutputFeaturesV4(index)
 	}
