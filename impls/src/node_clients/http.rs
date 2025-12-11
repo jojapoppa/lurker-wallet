@@ -20,6 +20,7 @@ use crate::libwallet;
 use crate::libwallet::{NodeClient, NodeVersionInfo};
 use crate::util::secp::pedersen;
 use crate::util::ToHex;
+use api_common::types::OutputType;
 use api_common::types::{LocatedTxKernel, OutputListing, OutputPrintable};
 use futures::stream::FuturesUnordered;
 use futures::TryStreamExt;

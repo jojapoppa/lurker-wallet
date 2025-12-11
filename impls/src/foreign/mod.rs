@@ -3,10 +3,14 @@
 
 use crate::util::Mutex;
 use crate::Keychain;
-use lurker_wallet_libwallet::internal::{self, selection, updater};
+use lurker_wallet_libwallet::internal::{self, selection};
 use lurker_wallet_libwallet::{BlockFees, CbData, Error, Slate, WalletInst};
 use lurker_wallet_libwallet::{NodeClient, WalletLCProvider};
+use lurker_wallet_libwallet::{SlateVersion, VersionInfo};
 use std::sync::Arc;
+
+use lurker_wallet_libwallet::api_impl::foreign;
+use lurker_wallet_libwallet::internal::{tx, updater};
 
 #[derive(Clone)]
 pub struct Foreign<'a, L, C, K>
@@ -37,9 +41,8 @@ where
 
 	pub fn check_version(&self) -> Result<VersionInfo, Error> {
 		Ok(VersionInfo {
-			node_version: "Lurker".to_string(),
-			block_header_version: 1,
-			verified: Some(true),
+			foreign_api_version: 2,
+			supported_slate_versions: vec![SlateVersion::V4],
 		})
 	}
 
@@ -47,7 +50,7 @@ where
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::build::build_coinbase(&mut **w, self.keychain_mask.as_ref(), block_fees)
+		foreign::build_coinbase(&mut **w, self.keychain_mask.as_ref(), block_fees, false)
 	}
 
 	pub fn receive_tx(
@@ -59,13 +62,19 @@ where
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::receive::receive_tx(&mut **w, self.keychain_mask.as_ref(), slate, dest_acct_name)
+		foreign::receive_tx(
+			&mut **w,
+			self.keychain_mask.as_ref(),
+			slate,
+			dest_acct_name,
+			false,
+		)
 	}
 
 	pub fn finalize_tx(&self, slate: &Slate, _noop: bool) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::finalize::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate)
+		foreign::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate, false)
 	}
 }

@@ -47,7 +47,7 @@ pub mod address;
 pub mod api_impl;
 mod error;
 pub use error::{Error, ErrorKind};
-mod internal;
+pub mod internal;
 pub mod mwixnet;
 mod slate;
 pub mod slate_versions;

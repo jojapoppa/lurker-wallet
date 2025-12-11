@@ -3,13 +3,16 @@
 
 use crate::util::Mutex;
 use crate::Keychain;
-use lurker_wallet_libwallet::internal::{self, selection, tx, updater};
+use lurker_wallet_libwallet::internal::{self, selection};
 use lurker_wallet_libwallet::{
 	BlockFees, CbData, Error, InitTxArgs, IssueInvoiceTxArgs, NodeClient as _, Slate, TxLogEntry,
 	WalletInfo, WalletInst,
 };
 use lurker_wallet_libwallet::{NodeClient, WalletLCProvider};
 use std::sync::Arc;
+
+use lurker_wallet_libwallet::api_impl::owner;
+use lurker_wallet_libwallet::internal::{tx, updater};
 
 #[derive(Clone)]
 pub struct Owner<'a, L, C, K>
@@ -42,21 +45,21 @@ where
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::tx::create_send_tx(&mut **w, self.keychain_mask.as_ref(), args)
+		owner::init_send_tx(&mut **w, self.keychain_mask.as_ref(), args, true)
 	}
 
 	pub fn issue_invoice_tx(&self, args: IssueInvoiceTxArgs) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::tx::create_invoice_tx(&mut **w, self.keychain_mask.as_ref(), args)
+		owner::issue_invoice_tx(&mut **w, self.keychain_mask.as_ref(), args, true)
 	}
 
 	pub fn finalize_tx(&self, slate: &Slate) -> Result<Slate, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
 		let w = lc.wallet_inst()?;
-		internal::finalize::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate)
+		owner::finalize_tx(&mut **w, self.keychain_mask.as_ref(), slate)
 	}
 
 	pub fn post_tx(&self, slate: &Slate, fluff: bool) -> Result<(), Error> {
@@ -69,17 +72,29 @@ where
 	}
 
 	pub fn get_wallet_info(&self) -> Result<WalletInfo, Error> {
-		let mut w = self.wallet_inst.lock();
-		let mut lc = w.lc_provider()?;
-		let w = lc.wallet_inst()?;
-		updater::refresh_wallet_info(&mut **w, self.keychain_mask.as_ref())
+		let w = self.wallet_inst.clone(); // ← clone the Arc
+		owner::retrieve_summary_info(
+			w, // ← pass the Arc<Mutex<...>>
+			self.keychain_mask.as_ref(),
+			&None, // ← no status messages needed
+			true,  // ← refresh from node
+			10,    // ← minimum confirmations
+		)
+		.map(|(_, info)| info) // ← return just the WalletInfo
 	}
 
 	pub fn get_transactions(&self) -> Result<Vec<TxLogEntry>, Error> {
-		let mut w = self.wallet_inst.lock();
-		let mut lc = w.lc_provider()?;
-		let w = lc.wallet_inst()?;
-		Ok(updater::retrieve_txs(&mut **w, self.keychain_mask.as_ref(), None, None)?.1)
+		let wallet_inst = self.wallet_inst.clone();
+		let (_updated, txs) = owner::retrieve_txs(
+			wallet_inst,
+			self.keychain_mask.as_ref(),
+			&None,
+			true,
+			None,
+			None,
+			None,
+		)?;
+		Ok(txs)
 	}
 
 	// Add more stubs as you need them — these are the most common ones
