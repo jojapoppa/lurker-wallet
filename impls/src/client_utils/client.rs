@@ -1,8 +1,8 @@
 // lurker-wallet/impls/src/client_utils/client.rs
 // LURKER — Minimal HTTP client, no TLS, no SOCKS, no legacy junk
 
-use crate::error::Error;
-use reqwest::blocking::Client;
+pub use crate::error::Error;
+pub use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Single, simple blocking POST — this is all we need

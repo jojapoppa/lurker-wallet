@@ -60,28 +60,6 @@ impl HTTPNodeClient {
 		}
 	}
 
-	/// Create a new client with proxy
-	pub fn new_proxy(
-		node_api_http_addr: &str,
-		node_api_secret: Option<String>,
-		proxy: Option<(SocketAddr, &'static str)>,
-	) -> Result<HTTPNodeClient, libwallet::Error> {
-		let ip = mesh_ip(); // Global IP set in main
-		let port = node_api_http_addr.split(':').last().unwrap_or("3413");
-		let ygg_url = format!("http://[{}]:{}", ip, port);
-		let client = if let Some((a, s)) = proxy {
-			Client::with_proxy(a, s)
-		} else {
-			Client::new()
-		};
-		Ok(HTTPNodeClient {
-			client: client.map_err(|_| libwallet::Error::Node)?,
-			node_url: ygg_url,
-			node_api_secret: node_api_secret,
-			node_version_info: None,
-		})
-	}
-
 	/// Allow returning the chain height without needing a wallet instantiated
 	pub fn chain_height(&self) -> Result<(u64, String), libwallet::Error> {
 		self.get_chain_tip()
