@@ -18,6 +18,7 @@ use lurker_util::ZeroingString;
 use lurker_wallet_config::WalletConfig;
 use lurker_wallet_libwallet::api_impl::owner;
 use lurker_wallet_libwallet::mwixnet::SwapReq;
+use lurker_wallet_libwallet::WalletInst;
 use lurker_wallet_libwallet::{
 	Amount, BlockFees, BuiltOutput, InitTxArgs, IssueInvoiceTxArgs, NodeClient, NodeHeightResult,
 	PaymentProof, Slate, SlateVersion, Slatepack, SlatepackAddress, StatusMessage, TxLogEntry,
@@ -223,18 +224,13 @@ where
 	fn get_top_level_directory(&self) -> Result<String, Error> {
 		let w = self.wallet_inst.lock();
 		let lc = w.lc_provider()?;
-		let wallet: &mut dyn WalletInst<'_, L, C, K> = &mut **lc.wallet_inst()?;
-		Ok(wallet
-			.get_top_level_directory()
-			.to_string_lossy()
-			.into_owned())
+		Ok(lc.get_top_level_directory()?.clone()) // ← just clone the String
 	}
 
 	fn set_top_level_directory(&self, dir: String) -> Result<(), Error> {
 		let mut w = self.wallet_inst.lock();
-		let lc = w.lc_provider()?;
-		let wallet: &mut dyn WalletInst<'_, L, C, K> = &mut **lc.wallet_inst()?;
-		wallet.set_top_level_directory(&dir)
+		let mut lc = w.lc_provider()?;
+		lc.set_top_level_directory(&dir)
 	}
 
 	fn create_config(

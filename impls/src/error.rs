@@ -99,7 +99,14 @@ pub enum Error {
 	#[error("Address is not an Onion v3 Address: {}", _0)]
 	NotOnion(String),
 
+	#[error("JSON parse error: {0}")]
+	Parse(String),
+
 	/// Other
 	#[error("Generic error: {}", _0)]
 	GenericError(String),
+
+	// for client.rs
+	#[error("HTTP error: {0}")]
+	Http(String),
 }

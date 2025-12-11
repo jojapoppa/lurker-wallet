@@ -14,7 +14,7 @@
 
 //! Client functions, implementations of the NodeClient trait
 
-use crate::client_utils::{Client, RUNTIME};
+use crate::client_utils::Client;
 use crate::core::core::{Transaction, TxKernel};
 use crate::libwallet;
 use crate::libwallet::{NodeClient, NodeVersionInfo};
@@ -22,8 +22,9 @@ use crate::util::secp::pedersen;
 use crate::util::ToHex;
 use api_common::types::OutputType;
 use api_common::types::{LocatedTxKernel, OutputListing, OutputPrintable};
-use futures::stream::FuturesUnordered;
-use futures::TryStreamExt;
+use lurker_util::from_hex;
+use lurker_util::secp::constants::MAX_PROOF_SIZE as RANGE_PROOF_SIZE;
+use lurker_util::secp::pedersen::RangeProof;
 use serde_json::json;
 use std::collections::HashMap;
 use std::env;
@@ -46,11 +47,13 @@ pub struct HTTPNodeClient {
 impl HTTPNodeClient {
 	/// Create a new client that will communicate with the given grin node
 	pub fn new(node_api_http_addr: &str, node_api_secret: Option<String>) -> HTTPNodeClient {
-		let ip = mesh_ip(); // Global IP set in main
+		let ip = mesh_ip();
 		let port = node_api_http_addr.split(':').last().unwrap_or("3413");
 		let ygg_url = format!("http://[{}]:{}", ip, port);
+		let client = Client::new().unwrap(); // safe — no TLS, no proxies
+
 		HTTPNodeClient {
-			client: Client::new(),
+			client,
 			node_url: ygg_url,
 			node_api_secret,
 			node_version_info: None,
@@ -218,113 +221,37 @@ impl NodeClient for HTTPNodeClient {
 	}
 
 	/// Retrieve outputs from node
+	/// Retrieve outputs from node — simple, blocking, single request
 	fn get_outputs_from_node(
 		&self,
 		wallet_outputs: Vec<pedersen::Commitment>,
 	) -> Result<HashMap<pedersen::Commitment, (String, u64, u64)>, libwallet::Error> {
-		// build a map of api outputs by commit so we can look them up efficiently
-		let mut api_outputs: HashMap<pedersen::Commitment, (String, u64, u64)> = HashMap::new();
+		let mut api_outputs = HashMap::new();
 
 		if wallet_outputs.is_empty() {
 			return Ok(api_outputs);
 		}
 
-		// build vec of commits for inclusion in query
-		let query_params: Vec<String> = wallet_outputs
-			.iter()
-			.map(|commit| format!("{}", commit.as_ref().to_hex()))
-			.collect();
+		let query_params: Vec<String> =
+			wallet_outputs.iter().map(|c| c.as_ref().to_hex()).collect();
 
-		// going to leave this here even though we're moving
-		// to the json RPC api to keep the functionality of
-		// parallelizing larger requests. Will raise default
-		// from 200 to 500, however
-		let chunk_default = 500;
-		let chunk_size = match env::var("GRIN_OUTPUT_QUERY_SIZE") {
-			Ok(s) => match s.parse::<usize>() {
-				Ok(c) => c,
-				Err(e) => {
-					error!(
-						"Unable to parse GRIN_OUTPUT_QUERY_SIZE, defaulting to {}",
-						chunk_default
-					);
-					error!("Reason: {}", e);
-					chunk_default
-				}
-			},
-			Err(_) => chunk_default,
-		};
+		let params = json!([query_params, null, null, false, false]);
+		let res: Vec<OutputPrintable> = self.send_json_request("get_outputs", &params)?;
 
-		trace!("Output query chunk size is: {}", chunk_size);
+		for out in res {
+			let height = out.height.ok_or_else(|| {
+				libwallet::Error::ClientCallback(format!(
+					"Missing height for output {}",
+					out.commitment.to_hex()
+				))
+			})?;
 
-		let url = format!("{}{}", self.node_url, ENDPOINT);
-		let api_secret = self.node_api_secret.clone();
-		let cl = self.client.clone();
-		let task = async move {
-			let params: Vec<_> = query_params
-				.chunks(chunk_size)
-				.map(|c| json!([c, null, null, false, false]))
-				.collect();
-
-			let mut reqs = Vec::with_capacity(params.len());
-			for p in &params {
-				reqs.push(build_request("get_outputs", p));
-			}
-
-			let mut tasks = Vec::with_capacity(params.len());
-			for req in &reqs {
-				tasks.push(cl.post_async::<Request, Response>(
-					url.as_str(),
-					req,
-					api_secret.clone(),
-				));
-			}
-
-			let task: FuturesUnordered<_> = tasks.into_iter().collect();
-			task.try_collect().await
-		};
-
-		let rt = RUNTIME.clone();
-		let res: Result<Vec<_>, _> =
-			std::thread::spawn(move || rt.lock().unwrap().block_on(async move { task.await }))
-				.join()
-				.unwrap();
-
-		let results: Vec<OutputPrintable> = match res {
-			Ok(resps) => {
-				let mut results = vec![];
-				for r in resps {
-					match r.into_result::<Vec<OutputPrintable>>() {
-						Ok(mut r) => results.append(&mut r),
-						Err(e) => {
-							let report = format!("Unable to parse response for get_outputs: {}", e);
-							error!("{}", report);
-							return Err(libwallet::Error::ClientCallback(report));
-						}
-					};
-				}
-				results
-			}
-			Err(e) => {
-				let report = format!("Getting outputs by id: {}", e);
-				error!("Outputs by id failed: {}", e);
-				return Err(libwallet::Error::ClientCallback(report));
-			}
-		};
-
-		for out in results.iter() {
-			let height = match out.block_height {
-				Some(h) => h,
-				None => {
-					let msg = format!("Missing block height for output {:?}", out.commit);
-					return Err(libwallet::Error::ClientCallback(msg));
-				}
-			};
 			api_outputs.insert(
-				out.commit,
-				(out.commit.as_ref().to_hex(), height, out.mmr_index),
+				out.commitment,
+				(out.commitment.as_ref().to_hex(), height, out.mmr_index),
 			);
 		}
+
 		Ok(api_outputs)
 	}
 
@@ -352,30 +279,40 @@ impl NodeClient for HTTPNodeClient {
 				OutputType::Coinbase => true,
 				OutputType::Transaction => false,
 			};
-			let range_proof = match out.range_proof() {
-				Ok(r) => r,
-				Err(e) => {
-					let msg = format!(
-						"Unexpected error in returned output (missing range proof): {:?}. {:?}, {}",
-						out.commit, out, e
-					);
-					error!("{}", msg);
+
+			let range_proof = match out.proof.as_ref() {
+				Some(hex_proof) => {
+					let bytes = from_hex(hex_proof).map_err(|_| {
+						libwallet::Error::ClientCallback("Invalid range proof hex".into())
+					})?;
+					if bytes.len() != RANGE_PROOF_SIZE {
+						return Err(libwallet::Error::ClientCallback(
+							"Wrong range proof size".into(),
+						));
+					}
+					let mut proof = [0u8; RANGE_PROOF_SIZE];
+					proof.copy_from_slice(&bytes);
+					RangeProof { proof }
+				}
+				None => {
+					let msg = format!("Missing range proof for output {:?}", out.commitment);
 					return Err(libwallet::Error::ClientCallback(msg));
 				}
 			};
-			let block_height = match out.block_height {
+
+			let block_height = match out.height {
 				Some(h) => h,
 				None => {
 					let msg = format!(
 						"Unexpected error in returned output (missing block height): {:?}. {:?}",
-						out.commit, out
+						out.commitment, out
 					);
 					error!("{}", msg);
 					return Err(libwallet::Error::ClientCallback(msg));
 				}
 			};
 			api_outputs.push((
-				out.commit,
+				out.commitment,
 				range_proof,
 				is_coinbase,
 				block_height,

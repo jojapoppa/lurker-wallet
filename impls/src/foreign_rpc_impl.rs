@@ -14,9 +14,9 @@ use lurker_keychain::Keychain;
 
 impl<'a, L, C, K> ForeignRpc for Foreign<'a, L, C, K>
 where
-	L: WalletLCProvider<'a, C, K>,
-	C: NodeClient + 'a,
-	K: Keychain + 'a,
+	L: WalletLCProvider<'a, C, K> + Sync + Send + 'a,
+	C: NodeClient + Sync + Send + 'a,
+	K: Keychain + Sync + Send + 'a,
 {
 	fn check_version(&self) -> Result<VersionInfo, Error> {
 		Foreign::check_version(self)
