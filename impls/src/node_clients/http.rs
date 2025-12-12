@@ -50,7 +50,9 @@ impl HTTPNodeClient {
 		let ip = mesh_ip();
 		let port = node_api_http_addr.split(':').last().unwrap_or("3413");
 		let ygg_url = format!("http://[{}]:{}", ip, port);
-		let client = Client::new().unwrap(); // safe — no TLS, no proxies
+
+		// No TLS, no proxies → Client::new() is infallible
+		let client = reqwest::blocking::Client::new();
 
 		HTTPNodeClient {
 			client,
@@ -72,28 +74,21 @@ impl HTTPNodeClient {
 	) -> Result<D, libwallet::Error> {
 		let url = format!("{}{}", self.node_url, ENDPOINT);
 		let req = build_request(method, params);
-		let res = self.client.post::<Request, Response>(
-			url.as_str(),
-			self.node_api_secret.as_ref(),
-			&req,
-		);
 
-		match res {
-			Err(e) => {
-				let report = format!("Error calling {}: {}", method, e);
-				error!("{}", report);
-				Err(libwallet::Error::ClientCallback(report))
-			}
-			Ok(inner) => match inner.clone().into_result() {
-				Ok(r) => Ok(r),
-				Err(e) => {
-					error!("{:?}", inner);
-					let report = format!("Unable to parse response for {}: {}", method, e);
-					error!("{}", report);
-					Err(libwallet::Error::ClientCallback(report))
-				}
-			},
-		}
+		let resp = self
+			.client
+			.post(&url)
+			.json(&req)
+			.basic_auth("grin", self.node_api_secret.as_deref())
+			.send()
+			.map_err(|e| libwallet::Error::ClientCallback(format!("HTTP request failed: {}", e)))?;
+
+		let text = resp.text().map_err(|e| {
+			libwallet::Error::ClientCallback(format!("Failed to read response: {}", e))
+		})?;
+
+		serde_json::from_str(&text)
+			.map_err(|e| libwallet::Error::ClientCallback("Failed to parse JSON response".into()))
 	}
 }
 
@@ -167,34 +162,32 @@ impl NodeClient for HTTPNodeClient {
 	) -> Result<Option<(TxKernel, u64, u64)>, libwallet::Error> {
 		let method = "get_kernel";
 		let params = json!([excess.0.as_ref().to_hex(), min_height, max_height]);
-		// have to handle this manually since the error needs to be parsed
 		let url = format!("{}{}", self.node_url, ENDPOINT);
 		let req = build_request(method, &params);
-		let res = self.client.post::<Request, Response>(
-			url.as_str(),
-			self.node_api_secret.as_ref(),
-			&req,
-		);
 
-		match res {
+		let resp = self
+			.client
+			.post(&url)
+			.json(&req)
+			.basic_auth("grin", self.node_api_secret.as_deref())
+			.send()
+			.map_err(|e| libwallet::Error::ClientCallback(format!("HTTP request failed: {}", e)))?;
+
+		let inner: Response = resp.json().map_err(|e| {
+			libwallet::Error::ClientCallback(format!("Failed to parse response: {}", e))
+		})?;
+
+		match inner.clone().into_result::<LocatedTxKernel>() {
+			Ok(r) => Ok(Some((r.tx_kernel, r.height, r.mmr_index))),
 			Err(e) => {
-				let report = format!("Error calling {}: {}", method, e);
-				error!("{}", report);
-				Err(libwallet::Error::ClientCallback(report))
-			}
-			Ok(inner) => match inner.clone().into_result::<LocatedTxKernel>() {
-				Ok(r) => Ok(Some((r.tx_kernel, r.height, r.mmr_index))),
-				Err(e) => {
-					let contents = format!("{:?}", inner);
-					if contents.contains("NotFound") {
-						Ok(None)
-					} else {
-						let report = format!("Unable to parse response for {}: {}", method, e);
-						error!("{}", report);
-						Err(libwallet::Error::ClientCallback(report))
-					}
+				if format!("{:?}", inner).contains("NotFound") {
+					Ok(None)
+				} else {
+					let report = format!("Unable to parse response for get_kernel: {}", e);
+					error!("{}", report);
+					Err(libwallet::Error::ClientCallback(report))
 				}
-			},
+			}
 		}
 	}
 
@@ -270,7 +263,10 @@ impl NodeClient for HTTPNodeClient {
 					}
 					let mut proof = [0u8; RANGE_PROOF_SIZE];
 					proof.copy_from_slice(&bytes);
-					RangeProof { proof }
+					RangeProof {
+						proof,
+						plen: RANGE_PROOF_SIZE,
+					} // ← real type, correct
 				}
 				None => {
 					let msg = format!("Missing range proof for output {:?}", out.commitment);

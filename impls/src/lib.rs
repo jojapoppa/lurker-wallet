@@ -15,7 +15,7 @@
 //! Concrete implementations of libwallet types for Lurker
 //!
 //! This crate contains the actual wallet implementation used by Lurker,
-//! including the default lifecycle provider, node clients, and slate adapters.
+//! including the default lifecycle provider, and node clients
 //! It is deliberately separated to avoid circular dependencies with libwallet.
 //!
 //! Lurker-specific features:
@@ -58,15 +58,15 @@ pub mod foreign_rpc_impl;
 pub mod owner_rpc_impl;
 
 // Public re-exports from this crate
-pub use crate::adapters::{
-	HttpSlateSender, PathToSlate, PathToSlatepack, SlateGetter, SlatePutter, SlateReceiver,
-	SlateSender,
-};
+//pub use crate::adapters::{
+//	HttpSlateSender, PathToSlate, PathToSlatepack, SlateGetter, SlatePutter, SlateReceiver,
+//	SlateSender,
+//};
+
 pub use crate::error::Error;
 pub use crate::lifecycle::DefaultLCProvider;
 pub use crate::node_clients::HTTPNodeClient;
 
-mod adapters;
 mod client_utils;
 mod error;
 mod lifecycle;
