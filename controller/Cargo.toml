@@ -30,6 +30,8 @@ easy-jsonrpc-mw = "0.5.4"
 lazy_static = "1"
 thiserror = "1"
 qr_code = "1.1.0"
+bech32 = "0.9"
+ed25519-dalek = "1"
 
 api_common = { path = "../../lurker/api_common" }
 lurker_wallet_util = { path = "../util", version = "5.4.0-alpha.1" }
