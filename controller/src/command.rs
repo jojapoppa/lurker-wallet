@@ -3,45 +3,57 @@
 
 use crate::config::{WalletConfig, WALLET_CONFIG_FILE_NAME};
 use crate::core::global;
-use crate::error::Error;
 use crate::keychain;
+use crate::libwallet;
+use crate::libwallet::Error;
 use crate::libwallet::{
-	InitTxArgs, IssueInvoiceTxArgs, NodeClient, PaymentProof, Slate, SlateState, Slatepack,
+	InitTxArgs, IssueInvoiceTxArgs, NodeClient, PaymentProof, SlateState, Slatepack,
 	SlatepackAddress, Slatepacker, SlatepackerArgs, WalletLCProvider,
 };
+use crate::util::secp::key::SecretKey;
 use crate::util::{Mutex, ZeroingString};
 use crate::{controller, display};
+use api_common::types::Token;
+use api_common::OwnerRpc;
 use core::time;
+use lurker_core::core::amount_to_hr_string;
+use lurker_keychain::Keychain;
+use lurker_wallet_impls::Owner;
+use lurker_wallet_libwallet::{Slate, VersionedSlate};
 use qr_code::QrCode;
+use serde_json;
 use serde_json as json;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use uuid::Uuid;
 
-use lurker_wallet_impls::Owner;
-
-/// Modern, clean parse_slatepack — Lurker edition
-fn parse_slatepack<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
-	keychain_mask: Option<&SecretKey>,
+/// Parse a slatepack from either a file or direct string input.
+/// Returns the inner Slate and the sender address (if available).
+pub fn parse_slatepack<L, C, K>(
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	input_file: Option<String>,
 	input_slatepack_message: Option<String>,
 ) -> Result<(Slate, Option<SlatepackAddress>), Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
+	// Load slatepack data from file or direct string
 	let slatepack_data = if let Some(file_path) = input_file {
-		let mut f = File::open(&file_path)
-			.map_err(|e| Error::GenericError(format!("Cannot open file {}: {}", file_path, e)))?;
+		let path: PathBuf = file_path.into();
+		let mut f = File::open(&path).map_err(|e| {
+			Error::GenericError(format!("Cannot open file {}: {}", path.display(), e))
+		})?;
 		let mut content = String::new();
-		f.read_to_string(&mut content)
-			.map_err(|e| Error::GenericError(format!("Cannot read file {}: {}", file_path, e)))?;
+		f.read_to_string(&mut content).map_err(|e| {
+			Error::GenericError(format!("Cannot read file {}: {}", path.display(), e))
+		})?;
 		content
 	} else if let Some(msg) = input_slatepack_message {
 		msg
@@ -49,12 +61,33 @@ where
 		return Err(Error::GenericError("No slatepack provided".into()));
 	};
 
-	let decoded = controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
-		api.decode_slatepack_message(m, slatepack_data, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-	})?;
+	let slatepack_data = slatepack_data.trim();
+	if slatepack_data.is_empty() {
+		return Err(Error::GenericError("Empty slatepack provided".into()));
+	}
 
-	let slate = Slate::deserialize_slatepack(&decoded.content, &decoded.version)
-		.map_err(|e| Error::GenericError(format!("Invalid slatepack content: {}", e)))?;
+	// Build token using the wallet's loaded keychain mask
+	let token = Token {
+		keychain_mask: owner_api.keychain_mask.clone(),
+	};
+
+	// Decode the slatepack envelope
+	let decoded = OwnerRpc::decode_slatepack_message(
+		owner_api,
+		token,
+		slatepack_data.to_owned(),
+		vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+	)?;
+
+	// Extract and deserialize the inner VersionedSlate from the payload
+	let versioned_slate: VersionedSlate =
+		serde_json::from_slice(&decoded.payload).map_err(|e| {
+			Error::GenericError(format!("Failed to parse slate JSON from payload: {}", e))
+		})?;
+
+	// Upgrade to the current Slate format
+	let slate = Slate::upgrade(versioned_slate)
+		.map_err(|e| Error::GenericError(format!("Failed to upgrade slate: {}", e)))?;
 
 	Ok((slate, decoded.sender.clone()))
 }
@@ -75,7 +108,6 @@ pub struct GlobalArgs {
 	pub node_api_secret: Option<String>,
 	pub show_spent: bool,
 	pub password: Option<ZeroingString>,
-	pub tls_conf: Option<TLSConfig>,
 }
 
 /// Arguments for init command
@@ -88,7 +120,7 @@ pub struct InitArgs {
 }
 
 pub fn init<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	_g_args: &GlobalArgs,
 	args: InitArgs,
 	test_mode: bool,
@@ -104,16 +136,15 @@ where
 	let password = args.password.clone();
 
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
-		api.create_config(&chain_type, WALLET_CONFIG_FILE_NAME, None, None)?;
+		api.create_config(chain_type, None, None)?;
 		api.create_wallet(
 			None,
-			args.recovery_phrase,
+			args.recovery_phrase.map(|zs| zs.to_string()),
 			args.list_length as u32,
-			password,
-			test_mode,
+			password.to_string(),
 		)?;
-		let phrase = api.get_mnemonic(wallet_inst, password)?;
-		show_recovery_phrase(phrase);
+		let phrase = OwnerRpc::get_mnemonic(api, None, password.to_string())?;
+		show_recovery_phrase(phrase.into());
 		Ok(())
 	})
 }
@@ -123,23 +154,26 @@ pub struct RecoverArgs {
 	pub passphrase: ZeroingString,
 }
 
-pub fn recover<L, C, K>(owner_api: &mut Owner<L, C, K>, args: RecoverArgs) -> Result<(), Error>
+pub fn recover<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
+	args: RecoverArgs,
+) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let wallet_inst = owner_api.wallet_inst.clone();
 	let password = args.passphrase;
 
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
-		let phrase = api.get_mnemonic(wallet_inst, password)?;
-		show_recovery_phrase(phrase);
+		let phrase = OwnerRpc::get_mnemonic(api, None, password.to_string())?;
+		show_recovery_phrase(phrase.into()); // String to ZeroingString for secure display/wipe
 		Ok(())
 	})
 }
 
-pub fn rewind_hash<L, C, K>(owner_api: &mut Owner<L, C, K>) -> Result<(), Error>
+pub fn rewind_hash<'a, L, C, K>(owner_api: &'a mut Owner<'static, L, C, K>) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
@@ -148,7 +182,10 @@ where
 	let wallet_inst = owner_api.wallet_inst.clone();
 
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
-		let hash = api.get_rewind_hash(wallet_inst)?;
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let hash = OwnerRpc::get_rewind_hash(api, token)?;
 		println!();
 		println!("Wallet Rewind Hash");
 		println!("-------------------------------------");
@@ -166,29 +203,42 @@ pub struct ViewWalletScanArgs {
 }
 
 /// Scan using rewind hash (view-only wallet)
-pub fn scan_rewind_hash<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn scan_rewind_hash<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	args: ViewWalletScanArgs,
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
-	let wallet_inst = owner_api.wallet_inst.clone();
-
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
+		// Determine the start height
 		let start_height = match args.backwards_from_tip {
-			Some(b) => {
-				let tip = api.node_height(wallet_inst.clone())?.height;
-				tip.saturating_sub(b)
+			Some(backwards) => {
+				let token = Token {
+					keychain_mask: api.keychain_mask.clone(),
+				};
+				let current_height = OwnerRpc::node_height(api, token)?.height;
+				current_height.saturating_sub(backwards)
 			}
 			None => args.start_height.unwrap_or(1),
 		};
 
-		let result = api.scan_rewind_hash(wallet_inst, args.rewind_hash, Some(start_height))?;
-		display::view_wallet_balance(result, dark_scheme);
+		// Perform the rewind hash scan
+		let view_wallet =
+			OwnerRpc::scan_rewind_hash(api, args.rewind_hash.clone(), Some(start_height))?;
+
+		// Get current node height for accurate balance display
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let current_height = OwnerRpc::node_height(api, token)?.height;
+
+		// Display the scanned wallet balance
+		display::view_wallet_balance(view_wallet, current_height, dark_scheme);
+
 		Ok(())
 	})
 }
@@ -198,8 +248,8 @@ where
 pub struct ListenArgs {}
 
 /// Listen — start the wallet HTTP listener (foreign API)
-pub fn listen<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn listen<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
 	config: &WalletConfig,
 	_args: &ListenArgs,
@@ -217,15 +267,8 @@ where
 	let api_thread = thread::Builder::new()
 		.name("wallet-http-listener".to_string())
 		.spawn(move || {
-			let res = controller::foreign_listener(
-				wallet_inst,
-				keychain_mask,
-				&config.api_listen_addr(),
-				g_args.tls_conf.clone(),
-				false,
-				test_mode,
-				None,
-			);
+			let res =
+				controller::foreign_listener(wallet_inst, keychain_mask, &config.api_listen_addr());
 			if let Err(e) = res {
 				error!("Error starting foreign listener: {}", e);
 			}
@@ -238,8 +281,8 @@ where
 }
 
 /// Owner API listener
-pub fn owner_api<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn owner_api<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<SecretKey>,
 	config: &WalletConfig,
 	g_args: &GlobalArgs,
@@ -265,8 +308,8 @@ where
 }
 
 /// Account command — Lurker has only one account
-pub fn account<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn account<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	_keychain_mask: Option<&SecretKey>,
 	_args: AccountArgs,
 ) -> Result<(), Error>
@@ -305,8 +348,8 @@ pub struct SendArgs {
 	pub slatepack_qr: bool,
 }
 
-pub fn send<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn send<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: SendArgs,
 	dark_scheme: bool,
@@ -371,7 +414,7 @@ where
 		slate = api.init_send_tx(m, init_args)?;
 		info!(
 			"Tx created: {} to {} (strategy '{}')",
-			core::amount_to_hr_string(amount, false),
+			lurker_core::core::amount_to_hr_string(amount, false),
 			args.dest,
 			args.selection_strategy,
 		);
@@ -392,8 +435,8 @@ where
 	Ok(())
 }
 
-pub fn output_slatepack<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn output_slatepack<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	slate: &Slate,
 	dest: &str,
@@ -401,7 +444,7 @@ pub fn output_slatepack<L, C, K>(
 	lock: bool,
 	finalizing: bool,
 	show_qr: bool,
-) -> Result<(), libwallet::Error>
+) -> Result<(), crate::libwallet::Error>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
@@ -483,8 +526,8 @@ pub struct ReceiveArgs {
 	pub slatepack_qr: bool,
 }
 
-pub fn receive<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn receive<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	g_args: &GlobalArgs,
 	args: ReceiveArgs,
@@ -539,8 +582,8 @@ pub struct ProcessInvoiceArgs {
 	pub slatepack_qr: bool,
 }
 
-pub fn process_invoice<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn process_invoice<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProcessInvoiceArgs,
 	dark_scheme: bool,
@@ -609,8 +652,8 @@ pub struct FinalizeArgs {
 	pub slatepack_qr: bool,
 }
 
-pub fn finalize<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn finalize<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: FinalizeArgs,
 ) -> Result<(), Error>
@@ -686,8 +729,8 @@ pub struct IssueInvoiceArgs {
 	pub slatepack_qr: bool,
 }
 
-pub fn issue_invoice_tx<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn issue_invoice_tx<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: IssueInvoiceArgs,
 ) -> Result<(), Error>
@@ -722,8 +765,8 @@ pub struct InfoArgs {
 	pub minimum_confirmations: u64,
 }
 
-pub fn info<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn info<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	g_args: &GlobalArgs,
 	args: InfoArgs,
@@ -749,8 +792,8 @@ where
 	Ok(())
 }
 
-pub fn outputs<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn outputs<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	g_args: &GlobalArgs,
 	dark_scheme: bool,
@@ -783,8 +826,8 @@ pub struct TxsArgs {
 	pub count: Option<u32>,
 }
 
-pub fn txs<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn txs<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	g_args: &GlobalArgs,
 	args: TxsArgs,
@@ -856,8 +899,8 @@ pub struct PostArgs {
 	pub input_slatepack_message: Option<String>,
 }
 
-pub fn post<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn post<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: PostArgs,
 ) -> Result<(), Error>
@@ -887,8 +930,8 @@ pub struct RepostArgs {
 	pub dump_file: Option<String>,
 }
 
-pub fn repost<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn repost<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: RepostArgs,
 ) -> Result<(), Error>
@@ -954,8 +997,8 @@ pub struct CancelArgs {
 	pub tx_id_string: String,
 }
 
-pub fn cancel<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn cancel<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CancelArgs,
 ) -> Result<(), Error>
@@ -987,8 +1030,8 @@ pub struct CheckArgs {
 	pub backwards_from_tip: Option<u64>,
 }
 
-pub fn scan<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn scan<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CheckArgs,
 ) -> Result<(), Error>
@@ -1023,8 +1066,8 @@ where
 }
 
 /// Payment Proof Address
-pub fn address<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn address<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	g_args: &GlobalArgs,
 	keychain_mask: Option<&SecretKey>,
 ) -> Result<(), Error>
@@ -1053,8 +1096,8 @@ pub struct ProofExportArgs {
 	pub tx_slate_id: Option<Uuid>,
 }
 
-pub fn proof_export<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn proof_export<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofExportArgs,
 ) -> Result<(), Error>
@@ -1088,8 +1131,8 @@ pub struct ProofVerifyArgs {
 	pub input_file: String,
 }
 
-pub fn proof_verify<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+pub fn proof_verify<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofVerifyArgs,
 ) -> Result<(), Error>

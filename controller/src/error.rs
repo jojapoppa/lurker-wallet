@@ -13,7 +13,6 @@
 // limitations under the License.
 
 //! Implementation specific error types
-use crate::api;
 use crate::core::core::transaction;
 use crate::core::libtx;
 use crate::impls;
