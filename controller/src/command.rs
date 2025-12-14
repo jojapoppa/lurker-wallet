@@ -250,10 +250,14 @@ where
 pub struct ListenArgs {}
 
 /// Listen — start the wallet HTTP listener (foreign API)
-pub fn listen<L, C, K>(
-	owner_api: &'static mut Owner<'static, L, C, K>,
+pub fn listen<'a, L, C, K>(
+	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-	config: WalletConfig,
+	config: &WalletConfig,
+	_args: &ListenArgs,
+	g_args: &GlobalArgs,
+	cli_mode: bool,
+	test_mode: bool,
 ) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
@@ -264,28 +268,29 @@ where
 
 	let foreign_addr = config.api_listen_addr().to_string();
 
-	thread::Builder::new()
-		.name("wallet-foreign-listener".to_string())
-		.spawn(move || {
-			let res = controller::foreign_listener(wallet_inst, keychain_mask, &foreign_addr);
-			if let Err(e) = res {
-				error!("Error starting foreign listener: {}", e);
-			}
-		})?;
-
-	// Owner listener if needed
-	let owner_addr = config.owner_api_listen_addr().to_string();
-
 	let keychain_mask_clone = keychain_mask.clone();
+	let wallet_inst_clone = wallet_inst.clone();
+	let foreign_addr_clone = foreign_addr.clone();
+
 	let foreign_thread = thread::Builder::new()
 		.name("wallet-foreign-listener".to_string())
 		.spawn(move || {
-			let res = controller::foreign_listener(wallet_inst, keychain_mask_clone, &foreign_addr);
+			let res = controller::foreign_listener(
+				wallet_inst_clone,
+				keychain_mask_clone,
+				&foreign_addr_clone,
+			);
 			if let Err(e) = res {
 				error!("Error starting foreign listener: {}", e);
 			}
 		})?;
+
+	let owner_addr = config.owner_api_listen_addr().to_string();
 	controller::owner_listener(owner_api.wallet_inst.clone(), keychain_mask, &owner_addr)?;
+
+	if !cli_mode {
+		let _ = foreign_thread.join();
+	}
 
 	Ok(())
 }
@@ -354,11 +359,10 @@ pub struct SendArgs {
 }
 
 pub fn send<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: SendArgs,
 	dark_scheme: bool,
-	test_mode: bool,
 ) -> Result<(), Error>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
@@ -367,20 +371,15 @@ where
 {
 	let mut slate = Slate::blank(2, false);
 	let mut amount = args.amount;
-
-	if args.use_max_amount {
-		controller::owner_single_use(None, None, Some(owner_api), |api, _| {
+	controller::owner_single_use(None, None, Some(owner_api), |api, _| {
+		if args.use_max_amount {
 			let token = Token {
 				keychain_mask: api.keychain_mask.clone(),
 			};
 			let (_, info) =
 				OwnerRpc::retrieve_summary_info(api, token, true, args.minimum_confirmations)?;
 			amount = info.amount_currently_spendable;
-			Ok(())
-		})?;
-	}
-
-	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+		}
 		if args.estimate_selection_strategies {
 			let strategies = vec!["smallest", "all"];
 			let results = strategies
@@ -401,15 +400,13 @@ where
 					Ok::<_, Error>((strategy.to_string(), slate.amount, slate.fee_fields))
 				})
 				.collect::<Result<Vec<_>, _>>()?;
-
 			let results_ref: Vec<(&str, u64, FeeFields)> = results
-				.into_iter()
-				.map(|(strategy, amount_locked, fee)| (strategy.as_str(), amount_locked, fee))
+				.iter()
+				.map(|(strategy, amount_locked, fee)| (strategy.as_str(), *amount_locked, *fee))
 				.collect();
 			display::estimate(amount, results_ref, dark_scheme);
 			return Ok(());
 		}
-
 		let init_args = InitTxArgs {
 			src_acct_name: None,
 			amount,
@@ -432,20 +429,18 @@ where
 			args.dest,
 			args.selection_strategy,
 		);
+		output_slatepack(
+			api,
+			keychain_mask,
+			&slate,
+			&args.dest,
+			args.outfile,
+			false,
+			false,
+			args.slatepack_qr,
+		)?;
 		Ok(())
 	})?;
-
-	output_slatepack(
-		owner_api,
-		keychain_mask,
-		&slate,
-		&args.dest,
-		args.outfile,
-		false,
-		false,
-		args.slatepack_qr,
-	)?;
-
 	Ok(())
 }
 
@@ -560,7 +555,7 @@ pub struct ReceiveArgs {
 
 /// Receive a transaction from a slatepack.
 pub fn receive<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ReceiveArgs,
 ) -> Result<(), Error>
@@ -608,7 +603,7 @@ pub struct ProcessInvoiceArgs {
 }
 
 pub fn process_invoice<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProcessInvoiceArgs,
 	dark_scheme: bool,
