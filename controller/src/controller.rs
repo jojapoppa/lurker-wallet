@@ -14,8 +14,10 @@ use crate::util::Mutex;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server, StatusCode};
 use log::warn;
+use lurker_wallet_libwallet::WalletOutputBatch;
 use serde_json::Value;
 use std::convert::Infallible;
+use std::net::AddrParseError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -27,7 +29,7 @@ pub fn owner_single_use<L, F, C, K>(
 	f: F,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	F: FnOnce(&mut Owner<'static, L, C, K>, Option<&SecretKey>) -> Result<(), Error>,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
@@ -68,11 +70,11 @@ pub fn owner_listener<L, C, K>(
 	addr: &str,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
 	K: Keychain + Send + Sync + 'static,
 {
-	let owner = Arc::new(Owner::new(wallet, keychain_mask));
+	let owner = Arc::new(Owner::new(wallet, keychain_mask.lock().clone()));
 
 	let make_service = make_service_fn(move |_conn| {
 		let owner = owner.clone();
@@ -109,7 +111,10 @@ where
 		}
 	});
 
-	let addr: SocketAddr = addr.parse()?;
+	let addr: SocketAddr = addr
+		.parse()
+		.map_err(|e| Error::GenericError(format!("Invalid listen address '{}': {}", addr, e)))?;
+
 	let server = Server::bind(&addr).serve(make_service);
 
 	warn!("Lurker Owner API listening on {}", addr);
@@ -134,7 +139,7 @@ where
 	C: NodeClient + Send + Sync + 'static,
 	K: Keychain + Send + Sync + 'static,
 {
-	let foreign = Arc::new(Foreign::new(wallet, keychain_mask));
+	let foreign = Arc::new(Foreign::new(wallet, keychain_mask.lock().clone()));
 
 	let make_service = make_service_fn(move |_conn| {
 		let foreign = foreign.clone();
@@ -171,7 +176,10 @@ where
 		}
 	});
 
-	let addr: SocketAddr = addr.parse()?;
+	let addr: SocketAddr = addr
+		.parse()
+		.map_err(|e| Error::GenericError(format!("Invalid listen address '{}': {}", addr, e)))?;
+
 	let server = Server::bind(&addr).serve(make_service);
 
 	warn!("Lurker Foreign API listening on {}", addr);

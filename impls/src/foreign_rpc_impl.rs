@@ -1,16 +1,13 @@
-// lurker-wallet/src/foreign_rpc_impl.rs
+// lurker-wallet/impls/src/foreign_rpc_impl.rs
 // LURKER — NODE IMPLEMENTATION OF FOREIGN RPC
 
 use crate::foreign::Foreign;
-use crate::CbData;
-use crate::NodeClient;
-use crate::Slate;
-use crate::SlateVersion;
-use crate::WalletLCProvider;
 use api_common::foreign_rpc::ForeignRpc;
-use api_common::types::{BlockFees, Error, VersionInfo, VersionedCoinbase, VersionedSlate};
-use api_common::types::{ECDHPubkey, Ed25519SecretKey, Token};
+use api_common::types::{BlockFees, Error, Token, VersionInfo, VersionedCoinbase, VersionedSlate};
 use lurker_keychain::Keychain;
+use lurker_wallet_libwallet::NodeClient;
+use lurker_wallet_libwallet::WalletLCProvider;
+use lurker_wallet_libwallet::{CbData, Slate, SlateVersion};
 
 impl<'a, L, C, K> ForeignRpc for Foreign<'a, L, C, K>
 where

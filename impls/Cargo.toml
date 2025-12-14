@@ -20,6 +20,7 @@ serde_derive = "1"
 serde_json = "1"
 log = "0.4"
 ring = "0.16"
+ed25519-dalek = "1"
 grin_secp256k1zkp = "0.7"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 chrono = { version = "0.4.11", features = ["serde"] }

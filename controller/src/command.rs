@@ -22,6 +22,7 @@ use ed25519_dalek::PublicKey;
 use lurker_core::core::amount_to_hr_string;
 use lurker_keychain::Keychain;
 use lurker_wallet_impls::Owner;
+use lurker_wallet_libwallet::WalletOutputBatch;
 use lurker_wallet_libwallet::{Slate, SlateVersion, VersionedSlate};
 use qr_code::QrCode;
 use serde_json;
@@ -44,7 +45,7 @@ pub fn parse_slatepack<L, C, K>(
 	input_slatepack_message: Option<String>,
 ) -> Result<(Slate, Option<SlatepackAddress>), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -130,9 +131,9 @@ pub fn init<L, C, K>(
 	test_mode: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let chain_type = global::get_chain_type();
 
@@ -158,33 +159,30 @@ pub struct RecoverArgs {
 	pub passphrase: ZeroingString,
 }
 
-pub fn recover<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+pub fn recover<L, C, K>(
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	args: RecoverArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let wallet_inst = owner_api.wallet_inst.clone();
-	let password = args.passphrase;
+	let password = args.passphrase.clone();
 
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
 		let phrase = OwnerRpc::get_mnemonic(api, None, password.to_string())?;
-		show_recovery_phrase(phrase.into()); // String to ZeroingString for secure display/wipe
+		show_recovery_phrase(phrase.into());
 		Ok(())
 	})
 }
 
-pub fn rewind_hash<'a, L, C, K>(owner_api: &'a mut Owner<'static, L, C, K>) -> Result<(), Error>
+pub fn rewind_hash<L, C, K>(owner_api: &'static mut Owner<'static, L, C, K>) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
-	let wallet_inst = owner_api.wallet_inst.clone();
-
 	controller::owner_single_use(None, None, Some(owner_api), move |api, _| {
 		let token = Token {
 			keychain_mask: api.keychain_mask.clone(),
@@ -207,13 +205,13 @@ pub struct ViewWalletScanArgs {
 }
 
 /// Scan using rewind hash (view-only wallet)
-pub fn scan_rewind_hash<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+pub fn scan_rewind_hash<L, C, K>(
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	args: ViewWalletScanArgs,
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -252,35 +250,43 @@ where
 pub struct ListenArgs {}
 
 /// Listen — start the wallet HTTP listener (foreign API)
-pub fn listen<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+pub fn listen<L, C, K>(
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
-	config: &WalletConfig,
-	_args: &ListenArgs,
-	g_args: &GlobalArgs,
-	cli_mode: bool,
-	test_mode: bool,
+	config: WalletConfig,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
-	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
+	C: NodeClient + Send + Sync + 'static,
+	K: Keychain + Send + Sync + 'static,
 {
 	let wallet_inst = owner_api.wallet_inst.clone();
 
-	let api_thread = thread::Builder::new()
-		.name("wallet-http-listener".to_string())
+	let foreign_addr = config.api_listen_addr().to_string();
+
+	thread::Builder::new()
+		.name("wallet-foreign-listener".to_string())
 		.spawn(move || {
-			let res =
-				controller::foreign_listener(wallet_inst, keychain_mask, &config.api_listen_addr());
+			let res = controller::foreign_listener(wallet_inst, keychain_mask, &foreign_addr);
 			if let Err(e) = res {
 				error!("Error starting foreign listener: {}", e);
 			}
 		})?;
 
-	if !cli_mode {
-		let _ = api_thread.join();
-	}
+	// Owner listener if needed
+	let owner_addr = config.owner_api_listen_addr().to_string();
+
+	let keychain_mask_clone = keychain_mask.clone();
+	let foreign_thread = thread::Builder::new()
+		.name("wallet-foreign-listener".to_string())
+		.spawn(move || {
+			let res = controller::foreign_listener(wallet_inst, keychain_mask_clone, &foreign_addr);
+			if let Err(e) = res {
+				error!("Error starting foreign listener: {}", e);
+			}
+		})?;
+	controller::owner_listener(owner_api.wallet_inst.clone(), keychain_mask, &owner_addr)?;
+
 	Ok(())
 }
 
@@ -291,7 +297,7 @@ pub fn owner_api<'a, L, C, K>(
 	config: &WalletConfig,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -355,15 +361,15 @@ pub fn send<'a, L, C, K>(
 	test_mode: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let mut slate = Slate::blank(2, false);
 	let mut amount = args.amount;
 
 	if args.use_max_amount {
-		controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+		controller::owner_single_use(None, None, Some(owner_api), |api, _| {
 			let token = Token {
 				keychain_mask: api.keychain_mask.clone(),
 			};
@@ -454,9 +460,9 @@ pub fn output_slatepack<'a, L, C, K>(
 	show_qr: bool,
 ) -> Result<(), crate::libwallet::Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let mut message = String::from("");
 	let mut address = None;
@@ -559,7 +565,7 @@ pub fn receive<'a, L, C, K>(
 	args: ReceiveArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -608,7 +614,7 @@ pub fn process_invoice<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -678,9 +684,9 @@ pub fn finalize<'a, L, C, K>(
 	args: FinalizeArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let (mut slate, _ret_address) = parse_slatepack(
 		owner_api,
@@ -754,9 +760,9 @@ pub fn issue_invoice_tx<'a, L, C, K>(
 	args: IssueInvoiceArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let issue_args = args.issue_args.clone();
 
@@ -791,7 +797,7 @@ pub fn info<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -821,7 +827,7 @@ pub fn outputs<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -870,7 +876,7 @@ pub fn txs<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -927,9 +933,9 @@ pub fn post<'a, L, C, K>(
 	args: PostArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	let (slate, _ret_address) = parse_slatepack(
 		owner_api,
@@ -957,7 +963,7 @@ pub fn repost<'a, L, C, K>(
 	args: RepostArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1027,9 +1033,9 @@ pub fn cancel<'a, L, C, K>(
 	args: CancelArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, _| {
 		let token = Token {
@@ -1064,9 +1070,9 @@ pub fn scan<'a, L, C, K>(
 	args: CheckArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
 		let token = Token {
@@ -1081,7 +1087,10 @@ where
 			},
 		};
 		warn!("Starting output scan from height {} ...", start_height);
-		let result = api.scan(m, Some(start_height), args.delete_unconfirmed);
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let result = OwnerRpc::scan(api, token, Some(start_height), args.delete_unconfirmed);
 		match result {
 			Ok(_) => {
 				warn!("Wallet check complete",);
@@ -1103,13 +1112,16 @@ pub fn address<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
 		// Just address at derivation index 0 for now
-		let address = api.get_slatepack_address(m, 0)?;
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let address = OwnerRpc::get_slatepack_address(api, token, 0)?;
 		println!();
 		println!("Address for account - {}", g_args.account);
 		println!("-------------------------------------");
@@ -1133,12 +1145,15 @@ pub fn proof_export<'a, L, C, K>(
 	args: ProofExportArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
-		let result = api.retrieve_payment_proof(m, true, args.id, args.tx_slate_id);
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let result = OwnerRpc::retrieve_payment_proof(api, token, true, args.id, args.tx_slate_id);
 		match result {
 			Ok(p) => {
 				// actually export proof
@@ -1168,9 +1183,9 @@ pub fn proof_verify<'a, L, C, K>(
 	args: ProofVerifyArgs,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'static, C, K> + 'static,
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	K: Keychain + 'static,
 {
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
 		let mut proof_f = match File::open(&args.input_file) {
@@ -1195,7 +1210,10 @@ where
 				return Err(libwallet::Error::PaymentProofParsing(msg));
 			}
 		};
-		let result = api.verify_payment_proof(m, &proof);
+		let token = Token {
+			keychain_mask: api.keychain_mask.clone(),
+		};
+		let result = OwnerRpc::verify_payment_proof(api, token, proof);
 		match result {
 			Ok((iam_sender, iam_recipient)) => {
 				println!("Payment proof's signatures are valid.");
