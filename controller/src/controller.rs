@@ -53,7 +53,7 @@ pub fn foreign_single_use<'a, L, F, C, K>(
 	f: F,
 ) -> Result<(), Error>
 where
-	L: WalletLCProvider<'a, C, K>,
+	L: WalletLCProvider<'a, C, K> + 'a,
 	F: FnOnce(&mut Foreign<'a, L, C, K>) -> Result<(), Error>,
 	C: NodeClient + 'a,
 	K: Keychain + 'a,

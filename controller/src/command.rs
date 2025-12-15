@@ -629,7 +629,10 @@ where
 	K: Keychain + 'static,
 {
 	let mut slate = args.slate.clone();
-	let dest = args.ret_address.map_or(String::new(), |a| a.to_string());
+	let dest = args
+		.ret_address
+		.as_ref()
+		.map_or(String::new(), |a| a.to_string());
 
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, _| {
 		if args.estimate_selection_strategies {
@@ -652,20 +655,19 @@ where
 		};
 		let versioned_slate = VersionedSlate::into_version(slate.clone(), SlateVersion::V4)?;
 		slate = OwnerRpc::process_invoice_tx(api, token, versioned_slate, init_args)?.into();
+
+		output_slatepack(
+			api,
+			keychain_mask,
+			&slate,
+			&dest,
+			args.outfile,
+			true,
+			false,
+			args.slatepack_qr,
+		)?;
 		Ok(())
 	})?;
-
-	output_slatepack(
-		owner_api,
-		keychain_mask,
-		&slate,
-		&dest,
-		args.outfile,
-		true,
-		false,
-		args.slatepack_qr,
-	)?;
-
 	Ok(())
 }
 
@@ -689,7 +691,7 @@ pub struct FinalizeArgs {
 }
 
 pub fn finalize<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: FinalizeArgs,
 ) -> Result<(), Error>
@@ -698,57 +700,51 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let (mut slate, _ret_address) = parse_slatepack(
-		owner_api,
-		args.input_file,              // input_file
-		args.input_slatepack_message, // input_slatepack_message
-	)?;
-
-	let is_invoice = slate.state == SlateState::Invoice2;
-
-	if is_invoice {
-		let km = keychain_mask.map(|m| m.to_owned());
-		controller::foreign_single_use(owner_api.wallet_inst.clone(), km, |api| {
-			slate = api.finalize_tx(&slate, false)?;
-			Ok(())
-		})?;
-	} else {
-		controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+	let wallet_inst = owner_api.wallet_inst.clone();
+	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+		let (mut slate, _ret_address) = parse_slatepack2(
+			api,
+			args.input_file,              // input_file
+			args.input_slatepack_message, // input_slatepack_message
+		)?;
+		let is_invoice = slate.state == SlateState::Invoice2;
+		if is_invoice {
+			let km = keychain_mask.map(|m| m.to_owned());
+			controller::foreign_single_use(wallet_inst, km, |fapi| {
+				slate = fapi.finalize_tx(&slate, false)?;
+				Ok(())
+			})?;
+		} else {
 			slate = api.finalize_tx(&slate)?;
-			Ok(())
-		})?;
-	}
-
-	if !args.nopost {
-		controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+			return Ok(());
+		}
+		if !args.nopost {
 			let result = api.post_tx(&slate, true); // or false, depending on fluff preference
 			match result {
 				Ok(_) => {
 					info!("Transaction sent successfully");
 					println!("Transaction posted");
-					Ok(())
+					return Ok(());
 				}
 				Err(e) => {
 					error!("Tx not sent: {}", e);
-					Err(e)
+					return Err(e);
 				}
 			}
-		})?;
-	}
-
-	println!("Transaction finalized successfully");
-
-	output_slatepack(
-		owner_api,
-		keychain_mask,
-		&slate,
-		"",
-		args.outfile,
-		false,
-		true,
-		args.slatepack_qr,
-	)?;
-
+		}
+		println!("Transaction finalized successfully");
+		output_slatepack(
+			api,
+			keychain_mask,
+			&slate,
+			"",
+			args.outfile,
+			false,
+			true,
+			args.slatepack_qr,
+		)?;
+		Ok(())
+	})?;
 	Ok(())
 }
 
@@ -765,7 +761,7 @@ pub struct IssueInvoiceArgs {
 }
 
 pub fn issue_invoice_tx<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: IssueInvoiceArgs,
 ) -> Result<(), Error>
@@ -775,23 +771,21 @@ where
 	K: Keychain + 'static,
 {
 	let issue_args = args.issue_args.clone();
-
 	let mut slate = Slate::blank(2, false);
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
 		slate = api.issue_invoice_tx(issue_args)?;
+		output_slatepack(
+			api,
+			keychain_mask,
+			&slate,
+			args.dest.as_str(),
+			args.outfile,
+			false,
+			false,
+			args.slatepack_qr,
+		)?;
 		Ok(())
 	})?;
-
-	output_slatepack(
-		owner_api,
-		keychain_mask,
-		&slate,
-		args.dest.as_str(),
-		args.outfile,
-		false,
-		false,
-		args.slatepack_qr,
-	)?;
 	Ok(())
 }
 
@@ -801,7 +795,7 @@ pub struct InfoArgs {
 }
 
 pub fn info<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: InfoArgs,
 	dark_scheme: bool,
@@ -832,7 +826,7 @@ where
 }
 
 pub fn outputs<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	dark_scheme: bool,
 ) -> Result<(), Error>
@@ -880,7 +874,7 @@ pub struct TxsArgs {
 }
 
 pub fn txs<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: TxsArgs,
 	dark_scheme: bool,
@@ -938,7 +932,7 @@ pub struct PostArgs {
 }
 
 pub fn post<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: PostArgs,
 ) -> Result<(), Error>
@@ -947,7 +941,7 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let (slate, _ret_address) = parse_slatepack(
+	let (slate, _ret_address) = parse_slatepack2(
 		owner_api,
 		args.input_file,              // or whatever the field name is for file input
 		args.input_slatepack_message, // or the field for direct string input
@@ -1038,7 +1032,7 @@ pub struct CancelArgs {
 }
 
 pub fn cancel<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CancelArgs,
 ) -> Result<(), Error>
@@ -1075,7 +1069,7 @@ pub struct CheckArgs {
 }
 
 pub fn scan<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CheckArgs,
 ) -> Result<(), Error>
@@ -1117,7 +1111,7 @@ where
 
 /// Payment Proof Address
 pub fn address<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	g_args: &GlobalArgs,
 	keychain_mask: Option<&SecretKey>,
 ) -> Result<(), Error>
@@ -1150,7 +1144,7 @@ pub struct ProofExportArgs {
 }
 
 pub fn proof_export<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofExportArgs,
 ) -> Result<(), Error>
@@ -1188,7 +1182,7 @@ pub struct ProofVerifyArgs {
 }
 
 pub fn proof_verify<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofVerifyArgs,
 ) -> Result<(), Error>
