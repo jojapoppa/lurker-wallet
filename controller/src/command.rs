@@ -49,6 +49,19 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
+	parse_slatepack2(owner_api, input_file, input_slatepack_message)
+}
+
+pub fn parse_slatepack2<L, C, K>(
+	owner_api: &mut Owner<'static, L, C, K>,
+	input_file: Option<String>,
+	input_slatepack_message: Option<String>,
+) -> Result<(Slate, Option<SlatepackAddress>), Error>
+where
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	C: NodeClient + 'static,
+	K: Keychain + 'static,
+{
 	// Load slatepack data from file or direct string
 	let slatepack_data = if let Some(file_path) = input_file {
 		let path: PathBuf = file_path.into();
@@ -564,27 +577,29 @@ where
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
-	let (mut slate, ret_address) =
-		parse_slatepack(owner_api, args.input_file, args.input_slatepack_message)?;
+	let wallet_inst = owner_api.wallet_inst.clone();
+	controller::owner_single_use(None, None, Some(owner_api), |api, _| {
+		let (mut slate, ret_address) =
+			parse_slatepack2(api, args.input_file, args.input_slatepack_message)?;
+		let km = keychain_mask.map(|m| m.to_owned());
+		controller::foreign_single_use(wallet_inst, km, |fapi| {
+			slate = fapi.receive_tx(&slate, None, None)?;
+			Ok(())
+		})?;
 
-	let km = keychain_mask.map(|m| m.to_owned());
-	controller::foreign_single_use(owner_api.wallet_inst.clone(), km, |api| {
-		slate = api.receive_tx(&slate, None, None)?;
+		let dest = ret_address.map_or(String::new(), |a| a.to_string());
+		output_slatepack(
+			api,
+			keychain_mask,
+			&slate,
+			&dest,
+			args.outfile,
+			false,
+			false,
+			args.slatepack_qr,
+		)?;
 		Ok(())
 	})?;
-
-	let dest = ret_address.map_or(String::new(), |a| a.to_string());
-	output_slatepack(
-		owner_api,
-		keychain_mask,
-		&slate,
-		&dest,
-		args.outfile,
-		false,
-		false,
-		args.slatepack_qr,
-	)?;
-
 	Ok(())
 }
 
