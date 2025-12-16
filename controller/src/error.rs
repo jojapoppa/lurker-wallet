@@ -1,3 +1,4 @@
+// controller/src/error.rs
 // Copyright 2021 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,86 +20,83 @@ use crate::impls;
 use crate::keychain;
 use crate::libwallet;
 
+use api_common::types::Error as ApiError;
+
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, thiserror::Error)]
-pub enum Error {
-	/// LibTX Error
+pub enum ControllerError {
+	#[error("Generic error: {0}")]
+	GenericError(String),
+
 	#[error("LibTx Error")]
 	LibTX(#[from] libtx::Error),
 
-	/// Impls error
 	#[error("Impls Error")]
 	Impls(#[from] impls::Error),
 
-	/// LibWallet Error
 	#[error("LibWallet Error: {0}")]
-	LibWallet(#[from] libwallet::Error),
+	LibWallet(libwallet::Error),
 
-	/// Keychain error
 	#[error("Keychain error")]
 	Keychain(#[from] keychain::Error),
 
-	/// Transaction Error
+	#[error("Payment Proof parsing error: {0}")]
+	PaymentProofParsing(String),
+
+	#[error("IO error: {0}")]
+	IO(String),
+
 	#[error("Transaction error")]
 	Transaction(#[from] transaction::Error),
 
-	/// Secp Error
 	#[error("Secp error")]
 	Secp,
 
-	/// Filewallet error
 	#[error("Wallet data error: {0}")]
 	FileWallet(&'static str),
 
-	/// Error when formatting json
-	#[error("IO error")]
-	IO,
-
-	/// Error when formatting json
 	#[error("Serde JSON error")]
 	Format,
 
-	/// Error when contacting a node through its API
 	#[error("Node API error")]
-	Node(#[from] api_common::Error),
+	Node(#[from] ApiError),
 
-	/// Error originating from hyper.
 	#[error("Hyper error")]
 	Hyper,
 
-	/// Error originating from hyper uri parsing.
 	#[error("Uri parsing error")]
 	Uri,
 
-	/// Attempt to use duplicate transaction id in separate transactions
 	#[error("Duplicate transaction ID error")]
 	DuplicateTransactionId,
 
-	/// Wallet seed already exists
 	#[error("Wallet seed file exists: {0}")]
 	WalletSeedExists(String),
 
-	/// Wallet seed doesn't exist
 	#[error("Wallet seed doesn't exist error")]
 	WalletSeedDoesntExist,
 
-	/// Enc/Decryption Error
 	#[error("Enc/Decryption error (check password?)")]
 	Encryption,
 
-	/// BIP 39 word list
 	#[error("BIP39 Mnemonic (word list) Error")]
 	Mnemonic,
 
-	/// Command line argument error
 	#[error("{0}")]
 	ArgumentError(String),
 
-	/// Other
 	#[error("Listener Startup Error")]
 	ListenerError,
+}
 
-	/// Other
-	#[error("Generic error: {0}")]
-	GenericError(String),
+impl From<std::io::Error> for ControllerError {
+	fn from(e: std::io::Error) -> Self {
+		ControllerError::IO(e.to_string())
+	}
+}
+
+impl From<ControllerError> for lurker_wallet_libwallet::Error {
+	fn from(e: ControllerError) -> Self {
+		lurker_wallet_libwallet::Error::GenericError(e.to_string())
+	}
 }

@@ -34,4 +34,4 @@ pub mod controller;
 pub mod display;
 mod error;
 
-pub use crate::error::Error;
+use crate::error::ControllerError;

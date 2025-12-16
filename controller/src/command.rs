@@ -6,7 +6,8 @@ use crate::core::core::FeeFields;
 use crate::core::global;
 use crate::keychain;
 use crate::libwallet;
-use crate::libwallet::Error;
+//use crate::libwallet::Error;
+use crate::error::ControllerError;
 use crate::libwallet::{
 	InitTxArgs, IssueInvoiceTxArgs, NodeClient, PaymentProof, SlateState, Slatepack,
 	SlatepackAddress, Slatepacker, SlatepackerArgs, WalletLCProvider,
@@ -27,6 +28,7 @@ use lurker_wallet_libwallet::{Slate, SlateVersion, VersionedSlate};
 use qr_code::QrCode;
 use serde_json;
 use serde_json as json;
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -43,7 +45,7 @@ pub fn parse_slatepack<L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	input_file: Option<String>,
 	input_slatepack_message: Option<String>,
-) -> Result<(Slate, Option<SlatepackAddress>), Error>
+) -> Result<(Slate, Option<SlatepackAddress>), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -56,7 +58,7 @@ pub fn parse_slatepack2<L, C, K>(
 	owner_api: &mut Owner<'static, L, C, K>,
 	input_file: Option<String>,
 	input_slatepack_message: Option<String>,
-) -> Result<(Slate, Option<SlatepackAddress>), Error>
+) -> Result<(Slate, Option<SlatepackAddress>), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -66,22 +68,26 @@ where
 	let slatepack_data = if let Some(file_path) = input_file {
 		let path: PathBuf = file_path.into();
 		let mut f = File::open(&path).map_err(|e| {
-			Error::GenericError(format!("Cannot open file {}: {}", path.display(), e))
+			ControllerError::GenericError(format!("Cannot open file {}: {}", path.display(), e))
 		})?;
 		let mut content = String::new();
 		f.read_to_string(&mut content).map_err(|e| {
-			Error::GenericError(format!("Cannot read file {}: {}", path.display(), e))
+			ControllerError::GenericError(format!("Cannot read file {}: {}", path.display(), e))
 		})?;
 		content
 	} else if let Some(msg) = input_slatepack_message {
 		msg
 	} else {
-		return Err(Error::GenericError("No slatepack provided".into()));
+		return Err(ControllerError::GenericError(
+			"No slatepack provided".into(),
+		));
 	};
 
 	let slatepack_data = slatepack_data.trim();
 	if slatepack_data.is_empty() {
-		return Err(Error::GenericError("Empty slatepack provided".into()));
+		return Err(ControllerError::GenericError(
+			"Empty slatepack provided".into(),
+		));
 	}
 
 	// Build token using the wallet's loaded keychain mask
@@ -100,12 +106,12 @@ where
 	// Extract and deserialize the inner VersionedSlate from the payload
 	let versioned_slate: VersionedSlate =
 		serde_json::from_slice(&decoded.payload).map_err(|e| {
-			Error::GenericError(format!("Failed to parse slate JSON from payload: {}", e))
+			ControllerError::GenericError(format!("Failed to parse slate JSON from payload: {}", e))
 		})?;
 
 	// Upgrade to the current Slate format
 	let slate = Slate::upgrade(versioned_slate)
-		.map_err(|e| Error::GenericError(format!("Failed to upgrade slate: {}", e)))?;
+		.map_err(|e| ControllerError::GenericError(format!("Failed to upgrade slate: {}", e)))?;
 
 	Ok((slate, decoded.sender.clone()))
 }
@@ -142,7 +148,7 @@ pub fn init<L, C, K>(
 	_g_args: &GlobalArgs,
 	args: InitArgs,
 	test_mode: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -175,7 +181,7 @@ pub struct RecoverArgs {
 pub fn recover<L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	args: RecoverArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -190,7 +196,9 @@ where
 	})
 }
 
-pub fn rewind_hash<L, C, K>(owner_api: &'static mut Owner<'static, L, C, K>) -> Result<(), Error>
+pub fn rewind_hash<L, C, K>(
+	owner_api: &'static mut Owner<'static, L, C, K>,
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -222,7 +230,7 @@ pub fn scan_rewind_hash<L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	args: ViewWalletScanArgs,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -271,7 +279,7 @@ pub fn listen<'a, L, C, K>(
 	g_args: &GlobalArgs,
 	cli_mode: bool,
 	test_mode: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
@@ -313,7 +321,7 @@ pub fn owner_api<'a, L, C, K>(
 	owner_api: &'a mut Owner<'static, L, C, K>,
 	keychain_mask: Option<SecretKey>,
 	config: &WalletConfig,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
 	C: NodeClient + 'static,
@@ -335,7 +343,7 @@ pub fn account<'a, L, C, K>(
 	owner_api: &'a mut Owner<'static, L, C, K>,
 	_keychain_mask: Option<&SecretKey>,
 	_args: AccountArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
@@ -376,7 +384,7 @@ pub fn send<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 	args: SendArgs,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -410,7 +418,7 @@ where
 						..Default::default()
 					};
 					let slate = api.init_send_tx(init_args)?;
-					Ok::<_, Error>((strategy.to_string(), slate.amount, slate.fee_fields))
+					Ok::<_, ControllerError>((strategy.to_string(), slate.amount, slate.fee_fields))
 				})
 				.collect::<Result<Vec<_>, _>>()?;
 			let results_ref: Vec<(&str, u64, FeeFields)> = results
@@ -457,8 +465,8 @@ where
 	Ok(())
 }
 
-pub fn output_slatepack<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+pub fn output_slatepack<L, C, K>(
+	owner_api: &mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	slate: &Slate,
 	dest: &str,
@@ -466,94 +474,101 @@ pub fn output_slatepack<'a, L, C, K>(
 	lock: bool,
 	finalizing: bool,
 	show_qr: bool,
-) -> Result<(), crate::libwallet::Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
+	output_slatepack(
+		owner_api,
+		keychain_mask,
+		slate,
+		dest,
+		out_file_override,
+		lock,
+		finalizing,
+		show_qr,
+	)
+}
+
+pub fn output_slatepack2<L, C, K>(
+	owner_api: &'static mut Owner<L, C, K>,
+	keychain_mask: Option<&SecretKey>,
+	slate: &Slate,
+	dest: &str,
+	out_file_override: Option<String>,
+	lock: bool,
+	finalizing: bool,
+	show_qr: bool,
+) -> Result<(), ControllerError>
+where
+	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	C: NodeClient + 'static,
+	K: keychain::Keychain + 'static,
+{
 	let mut message = String::from("");
 	let mut address = None;
 	let mut tld = String::from("");
 	controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
-		let (hrp, data, variant) = bech32::decode(dest)
-			.map_err(|e| Error::GenericError(format!("Invalid bech32 address: {}", e)))?;
-		if hrp != "grin" {
-			return Err(Error::GenericError(
-				"Invalid HRP for slatepack address".into(),
-			));
-		}
-		let pub_key_bytes = Vec::from_base32(&data)
-			.map_err(|e| Error::GenericError(format!("Invalid base32 data: {}", e)))?;
-		let pub_key = PublicKey::from_bytes(&pub_key_bytes)
-			.map_err(|e| Error::GenericError(format!("Invalid public key: {}", e)))?;
-		address = Some(SlatepackAddress::new(&pub_key));
+		address = SlatepackAddress::try_from(dest).ok();
 		let recipients = match address.clone() {
 			Some(a) => vec![a],
 			None => vec![],
 		};
-
-		let token = Token {
-			keychain_mask: api.keychain_mask.clone(),
-		};
 		let versioned_slate = VersionedSlate::into_version(slate.clone(), SlateVersion::V4)?;
-		message =
-			OwnerRpc::create_slatepack_message(api, token, versioned_slate, Some(0), recipients)?;
+		message = api.create_slatepack_message(versioned_slate, Some(0), recipients)?;
 		tld = api.get_top_level_directory()?;
-		Ok(())
-	})?;
 
-	let slate_dir = format!("{}/{}", tld, "slatepack");
-	let _ = std::fs::create_dir_all(slate_dir.clone());
-	let out_file_name = match out_file_override {
-		None => format!("{}/{}.{}.slatepack", slate_dir, slate.id, slate.state),
-		Some(f) => f,
-	};
+		let slate_dir = format!("{}/{}", tld, "slatepack");
+		let _ = std::fs::create_dir_all(slate_dir.clone());
+		let out_file_name = match out_file_override {
+			None => format!("{}/{}.{}.slatepack", slate_dir, slate.id, slate.state),
+			Some(f) => f,
+		};
 
-	if lock {
-		controller::owner_single_use(None, keychain_mask, Some(owner_api), |api, m| {
+		if lock {
 			let token = Token {
-				keychain_mask: m.clone().cloned(),
+				keychain_mask: api.keychain_mask.clone(),
 			};
 			let versioned_slate = VersionedSlate::into_version(slate.clone(), SlateVersion::V4)?;
-			OwnerRpc::tx_lock_outputs(api, token, versioned_slate)?;
-			Ok(())
-		})?;
-	}
-
-	let mut output = File::create(out_file_name.clone())?;
-	output.write_all(message.as_bytes())?;
-	output.sync_all()?;
-
-	println!("{}", out_file_name);
-	println!();
-	if !finalizing {
-		println!("Slatepack data follows. Please provide this output to the other party");
-	} else {
-		println!("Slatepack data follows.");
-	}
-	println!();
-	println!("--- CUT BELOW THIS LINE ---");
-	println!();
-	println!("{}", message);
-	println!("--- CUT ABOVE THIS LINE ---");
-	println!();
-	println!("Slatepack data was also saved to: {}", out_file_name);
-	println!();
-
-	if show_qr {
-		if let Ok(qr) = QrCode::new(&message) {
-			println!("{}", qr.to_string(false, 3));
-			println!();
+			api.tx_lock_outputs(token, versioned_slate)?;
 		}
-	}
 
-	if address.is_some() {
-		println!("Slatepack is encrypted for recipient only");
-	} else {
-		println!("Slatepack is NOT encrypted");
-	}
-	println!();
+		let mut output = File::create(out_file_name.clone())?;
+		output.write_all(message.as_bytes())?;
+		output.sync_all()?;
+
+		println!("Slatepack data was saved to: {}", out_file_name);
+		println!();
+
+		if !finalizing {
+			println!("Slatepack data follows. Please provide this output to the other party");
+		} else {
+			println!("Slatepack data follows.");
+		}
+		println!();
+		println!("--- CUT BELOW THIS LINE ---");
+		println!();
+		println!("{}", message);
+		println!("--- CUT ABOVE THIS LINE ---");
+		println!();
+
+		if show_qr {
+			if let Ok(qr) = QrCode::new(&message) {
+				println!("{}", qr.to_string(false, 3));
+				println!();
+			}
+		}
+
+		if address.is_some() {
+			println!("Slatepack is encrypted for recipient only");
+		} else {
+			println!("Slatepack is NOT encrypted");
+		}
+		println!();
+		Ok(())
+	})?;
 	Ok(())
 }
 
@@ -571,7 +586,7 @@ pub fn receive<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ReceiveArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -622,7 +637,7 @@ pub fn process_invoice<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 	args: ProcessInvoiceArgs,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -694,7 +709,7 @@ pub fn finalize<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: FinalizeArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -728,7 +743,7 @@ where
 				}
 				Err(e) => {
 					error!("Tx not sent: {}", e);
-					return Err(e);
+					return Err(ControllerError::LibWallet(e));
 				}
 			}
 		}
@@ -764,7 +779,7 @@ pub fn issue_invoice_tx<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: IssueInvoiceArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -799,7 +814,7 @@ pub fn info<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 	args: InfoArgs,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -829,7 +844,7 @@ pub fn outputs<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -878,7 +893,7 @@ pub fn txs<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 	args: TxsArgs,
 	dark_scheme: bool,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -935,7 +950,7 @@ pub fn post<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: PostArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -962,10 +977,10 @@ pub struct RepostArgs {
 }
 
 pub fn repost<'a, L, C, K>(
-	owner_api: &'a mut Owner<'static, L, C, K>,
+	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: RepostArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -998,7 +1013,7 @@ where
 				}
 
 				// Check if transaction is finalized (signature not blank)
-				let inner_slate: Slate = stored_tx_slate.into()?;
+				let inner_slate: Slate = <VersionedSlate as Into<Slate>>::into(stored_tx_slate);
 				let excess_sig = inner_slate.tx.as_ref().unwrap().kernels()[0]
 					.excess_sig
 					.clone();
@@ -1010,7 +1025,7 @@ where
 			Some(f) => {
 				let mut tx_file = File::create(f.clone())?;
 				let json = serde_json::to_string_pretty(&stored_tx_slate).map_err(|e| {
-					Error::GenericError(format!("Failed to serialize slate: {}", e))
+					ControllerError::GenericError(format!("Failed to serialize slate: {}", e))
 				})?;
 				tx_file.write_all(json.as_bytes())?;
 				tx_file.sync_all()?;
@@ -1035,7 +1050,7 @@ pub fn cancel<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CancelArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -1054,7 +1069,7 @@ where
 			}
 			Err(e) => {
 				error!("TX Cancellation failed: {}", e);
-				Err(e)
+				Err(ControllerError::LibWallet(e))
 			}
 		}
 	})?;
@@ -1072,7 +1087,7 @@ pub fn scan<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: CheckArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -1102,7 +1117,7 @@ where
 			}
 			Err(e) => {
 				error!("Wallet check failed: {}", e);
-				Err(e)
+				Err(ControllerError::LibWallet(e))
 			}
 		}
 	})?;
@@ -1114,7 +1129,7 @@ pub fn address<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	g_args: &GlobalArgs,
 	keychain_mask: Option<&SecretKey>,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -1147,7 +1162,7 @@ pub fn proof_export<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofExportArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -1169,7 +1184,7 @@ where
 			}
 			Err(e) => {
 				error!("Proof export failed: {}", e);
-				Err(e)
+				Err(ControllerError::LibWallet(e))
 			}
 		}
 	})?;
@@ -1185,7 +1200,7 @@ pub fn proof_verify<'a, L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 	keychain_mask: Option<&SecretKey>,
 	args: ProofVerifyArgs,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
 	C: NodeClient + 'static,
@@ -1200,7 +1215,8 @@ where
 					"Unable to open payment proof file at {}: {}",
 					args.input_file, e
 				);
-				return Err(libwallet::Error::PaymentProofParsing(msg));
+				return Err(ControllerError::PaymentProofParsing(msg));
+				//return Err(libwallet::Error::PaymentProofParsing(msg));
 			}
 		};
 		let mut proof = String::new();
@@ -1211,7 +1227,7 @@ where
 			Err(e) => {
 				let msg = format!("{}", e);
 				error!("Unable to parse payment proof file: {}", e);
-				return Err(libwallet::Error::PaymentProofParsing(msg));
+				return Err(ControllerError::PaymentProofParsing(msg));
 			}
 		};
 		let token = Token {
@@ -1236,7 +1252,7 @@ where
 			}
 			Err(e) => {
 				error!("Proof not valid: {}", e);
-				Err(e)
+				Err(ControllerError::LibWallet(e))
 			}
 		}
 	})?;

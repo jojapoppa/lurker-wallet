@@ -15,8 +15,9 @@
 use crate::core::core::FeeFields;
 use crate::core::core::{self, amount_to_hr_string};
 use crate::core::global;
+use crate::error::ControllerError;
 use crate::libwallet::{
-	AcctPathMapping, Error, OutputCommitMapping, OutputStatus, TxLogEntry, ViewWallet, WalletInfo,
+	AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, ViewWallet, WalletInfo,
 };
 use crate::util::ToHex;
 use lurker_wallet_util::OnionV3Address;
@@ -31,7 +32,7 @@ pub fn outputs(
 	validated: bool,
 	outputs: Vec<OutputCommitMapping>,
 	dark_background_color_scheme: bool,
-) -> Result<(), Error> {
+) -> Result<(), ControllerError> {
 	let title = format!(
 		"Wallet Outputs - Account '{}' - Block Height: {}",
 		account, cur_height
@@ -132,7 +133,7 @@ pub fn txs(
 	txs: &[TxLogEntry],
 	include_status: bool,
 	dark_background_color_scheme: bool,
-) -> Result<(), Error> {
+) -> Result<(), ControllerError> {
 	let title = format!(
 		"Transaction Log - Account '{}' - Block Height: {}",
 		account, cur_height
@@ -317,7 +318,7 @@ pub fn view_wallet_output(
 	view_wallet: ViewWallet,
 	cur_height: u64,
 	dark_background_color_scheme: bool,
-) -> Result<(), Error> {
+) -> Result<(), ControllerError> {
 	println!();
 	let title = format!("View Wallet Outputs - Block Height: {}", cur_height);
 
@@ -545,7 +546,7 @@ pub fn accounts(acct_mappings: Vec<AcctPathMapping>) {
 }
 
 /// Display individual Payment Proof
-pub fn payment_proof(tx: &TxLogEntry) -> Result<(), Error> {
+pub fn payment_proof(tx: &TxLogEntry) -> Result<(), ControllerError> {
 	let title = format!("Payment Proof - Transaction '{}'", tx.id,);
 	println!();
 	if term::stdout().is_none() {

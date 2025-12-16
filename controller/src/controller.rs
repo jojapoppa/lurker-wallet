@@ -6,8 +6,9 @@ use api_common::{ForeignRpc, OwnerRpc};
 
 use lurker_wallet_impls::{Foreign, Owner};
 
+use crate::error::ControllerError;
 use crate::keychain::Keychain;
-use crate::libwallet::{Error, NodeClient, WalletInst, WalletLCProvider};
+use crate::libwallet::{NodeClient, WalletInst, WalletLCProvider};
 use crate::util::secp::key::SecretKey;
 use crate::util::Mutex;
 
@@ -27,10 +28,10 @@ pub fn owner_single_use<L, F, C, K>(
 	keychain_mask: Option<&SecretKey>,
 	api_context: Option<&'static mut Owner<'static, L, C, K>>,
 	f: F,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
-	F: FnOnce(&mut Owner<'static, L, C, K>, Option<&SecretKey>) -> Result<(), Error>,
+	F: FnOnce(&mut Owner<'static, L, C, K>, Option<&SecretKey>) -> Result<(), ControllerError>,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -38,7 +39,9 @@ where
 		Some(c) => f(c, keychain_mask)?,
 		None => {
 			let wallet = wallet.ok_or_else(|| {
-				Error::GenericError("Wallet instance required for single-use Owner API".into())
+				ControllerError::GenericError(
+					"Wallet instance required for single-use Owner API".into(),
+				)
 			})?;
 			f(&mut Owner::new(wallet, None), keychain_mask)?
 		}
@@ -51,10 +54,10 @@ pub fn foreign_single_use<'a, L, F, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'a, L, C, K>>>>,
 	keychain_mask: Option<SecretKey>,
 	f: F,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'a, C, K> + 'a,
-	F: FnOnce(&mut Foreign<'a, L, C, K>) -> Result<(), Error>,
+	F: FnOnce(&mut Foreign<'a, L, C, K>) -> Result<(), ControllerError>,
 	C: NodeClient + 'a,
 	K: Keychain + 'a,
 {
@@ -68,7 +71,7 @@ pub fn owner_listener<L, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
 	addr: &str,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
@@ -88,10 +91,12 @@ where
 					let json: Value = match serde_json::from_slice(&body_bytes) {
 						Ok(j) => j,
 						Err(_) => {
-							return Ok(Response::builder()
-								.status(StatusCode::BAD_REQUEST)
-								.body("Invalid JSON".into())
-								.unwrap())
+							return Ok::<_, Infallible>(
+								Response::builder()
+									.status(StatusCode::BAD_REQUEST)
+									.body("Invalid JSON".into())
+									.unwrap(),
+							);
 						}
 					};
 
@@ -111,9 +116,9 @@ where
 		}
 	});
 
-	let addr: SocketAddr = addr
-		.parse()
-		.map_err(|e| Error::GenericError(format!("Invalid listen address '{}': {}", addr, e)))?;
+	let addr: SocketAddr = addr.parse().map_err(|e| {
+		ControllerError::GenericError(format!("Invalid listen address '{}': {}", addr, e))
+	})?;
 
 	let server = Server::bind(&addr).serve(make_service);
 
@@ -133,7 +138,7 @@ pub fn foreign_listener<L, C, K>(
 	wallet: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K> + 'static>>>,
 	keychain_mask: Arc<Mutex<Option<SecretKey>>>,
 	addr: &str,
-) -> Result<(), Error>
+) -> Result<(), ControllerError>
 where
 	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
@@ -153,10 +158,12 @@ where
 					let json: Value = match serde_json::from_slice(&body_bytes) {
 						Ok(j) => j,
 						Err(_) => {
-							return Ok(Response::builder()
-								.status(StatusCode::BAD_REQUEST)
-								.body("Invalid JSON".into())
-								.unwrap())
+							return Ok::<_, Infallible>(
+								Response::builder()
+									.status(StatusCode::BAD_REQUEST)
+									.body("Invalid JSON".into())
+									.unwrap(),
+							);
 						}
 					};
 
@@ -176,9 +183,9 @@ where
 		}
 	});
 
-	let addr: SocketAddr = addr
-		.parse()
-		.map_err(|e| Error::GenericError(format!("Invalid listen address '{}': {}", addr, e)))?;
+	let addr: SocketAddr = addr.parse().map_err(|e| {
+		ControllerError::GenericError(format!("Invalid listen address '{}': {}", addr, e))
+	})?;
 
 	let server = Server::bind(&addr).serve(make_service);
 
