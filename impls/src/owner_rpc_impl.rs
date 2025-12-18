@@ -14,6 +14,8 @@ use lurker_keychain::BlindingFactor;
 use lurker_keychain::Identifier;
 use lurker_keychain::Keychain;
 use lurker_keychain::SwitchCommitmentType;
+use lurker_secp256k1zkp::key::SecretKey;
+use lurker_secp256k1zkp::pedersen::RangeProof;
 use lurker_util::logger::LoggingConfig;
 use lurker_util::static_secp_instance;
 use lurker_util::ZeroingString;
@@ -29,8 +31,6 @@ use lurker_wallet_libwallet::{
 	VersionedSlate, ViewWallet, WalletInfo, WalletLCProvider,
 };
 use rand::thread_rng;
-use secp256k1zkp::pedersen::RangeProof;
-use secp256k1zkp::SecretKey;
 use uuid::Uuid;
 
 impl<'a, L, C, K> OwnerRpc for Owner<'a, L, C, K>

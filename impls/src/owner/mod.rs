@@ -20,6 +20,7 @@ use lurker_core::core::Output;
 use lurker_core::core::OutputFeatures;
 use lurker_keychain::BlindingFactor;
 use lurker_keychain::SwitchCommitmentType;
+use lurker_secp256k1zkp::pedersen::RangeProof;
 use lurker_util::secp::key::SecretKey;
 use lurker_util::static_secp_instance;
 use lurker_wallet_libwallet::api_impl::owner;
@@ -30,7 +31,6 @@ use lurker_wallet_libwallet::{
 	SlatepackerArgs, VersionedSlate,
 };
 use rand::thread_rng;
-use secp256k1zkp::pedersen::RangeProof;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -222,7 +222,11 @@ where
 		let mut secp = secp_instance.lock();
 		let blind = SecretKey::new(&mut secp, &mut thread_rng());
 		let commit = secp.commit(amount.0, blind.clone())?;
-		let output = Output::new(features, commit, RangeProof::zero());
+		let output = Output::new(
+			features,
+			commit,
+			lurker_secp256k1zkp::pedersen::RangeProof::zero(),
+		);
 		let key_id = w.parent_key_id().clone();
 		Ok(BuiltOutput {
 			blind: BlindingFactor::from_secret_key(blind),

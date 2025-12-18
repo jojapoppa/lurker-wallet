@@ -25,7 +25,7 @@ use lurker_core::core::transaction::{
 use lurker_core::global::current_target_difficulty;
 use lurker_core::BlockChain;
 use lurker_core::Options;
-use secp256k1zkp::pedersen::RangeProof;
+use lurker_secp256k1zkp::pedersen::RangeProof;
 
 mod testclient;
 pub use testclient::{LocalWalletClient, WalletProxy};

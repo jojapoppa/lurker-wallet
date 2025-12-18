@@ -10,7 +10,7 @@ workspace = ".."
 edition = "2018"
 
 [dependencies]
-rand = "0.6"
+rand = "0.6.5"
 serde = "1"
 serde_derive = "1"
 ed25519-dalek = "1.0.0-pre.4"
