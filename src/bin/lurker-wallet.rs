@@ -83,7 +83,7 @@ fn main() {
 }
 
 fn real_main() -> i32 {
-	let yml = load_yaml!("grin-wallet.yml");
+	let yml = load_yaml!("lurker-wallet.yml");
 	let args = App::from_yaml(yml)
 		.version(built_info::PKG_VERSION)
 		.get_matches();
@@ -130,11 +130,11 @@ fn real_main() -> i32 {
 		Ok(c) => c,
 		Err(e) => match e {
 			ConfigError::PathNotFoundError(m) => {
-				println!("Wallet configuration not found at {}. (Run `grin-wallet init` to create a new wallet)", m);
+				println!("Wallet configuration not found at {}. (Run `lurker-wallet init` to create a new wallet)", m);
 				return 0;
 			}
 			m => {
-				println!("Unable to load wallet configuration: {} (Run `grin-wallet init` to create a new wallet)", m);
+				println!("Unable to load wallet configuration: {} (Run `lurker-wallet init` to create a new wallet)", m);
 				return 0;
 			}
 		},

@@ -1003,7 +1003,7 @@ where
 	node_client.set_node_url(&wallet_config.check_node_api_http_addr);
 	node_client.set_node_api_secret(global_wallet_args.node_api_secret.clone());
 
-	// legacy hack to avoid the need for changes in existing grin-wallet.toml files
+	// legacy hack to avoid the need for changes in existing lurker-wallet.toml files
 	// remove `wallet_data` from end of path as
 	// new lifecycle provider assumes lurker_wallet.toml is in root of data directory
 	let mut top_level_wallet_dir = PathBuf::from(wallet_config.clone().data_file_dir);
@@ -1296,7 +1296,7 @@ where
 			Ok(())
 		}
 		_ => {
-			let msg = format!("Unknown wallet command, use 'grin-wallet help' for details");
+			let msg = format!("Unknown wallet command, use 'lurker-wallet help' for details");
 			return Err(Error::ArgumentError(msg));
 		}
 	}

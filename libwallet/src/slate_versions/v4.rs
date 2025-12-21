@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Contains V4 of the slate (grin-wallet 4.0.0)
+//! Contains V4 of the slate (lurker-wallet 4.0.0)
 //! Changes from V3:
 //! /#### Top-Level Slate Struct
 

@@ -1,4 +1,4 @@
-@startuml grin-wallet-overview 
+@startuml lurker-wallet-overview 
 skinparam componentStyle uml2
 
 [Grin Node] as lurker_node

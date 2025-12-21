@@ -12,8 +12,8 @@ build = "src/build/build.rs"
 edition = "2018"
 
 [[bin]]
-name = "grin-wallet"
-path = "src/bin/grin-wallet.rs"
+name = "lurker-wallet"
+path = "src/bin/lurker-wallet.rs"
 
 [workspace]
 members = ["config", "controller", "impls", "libwallet", "util", "api_common", "lurker-watch-only", "lurker-hot-wallet"]
@@ -34,6 +34,7 @@ rpassword = "4.0"
 thiserror = "1"
 prettytable-rs = "0.10"
 log = "0.4"
+env_logger = "0.10"
 linefeed = "0.6"
 semver = "0.10"
 rustyline = "6"

@@ -55,9 +55,16 @@ fn owner_v3_init_secure() -> Result<(), lurker_wallet_controller::Error> {
 		test_framework::award_blocks_to_wallet(&chain, wallet1.clone(), mask1, bh as usize, false);
 
 	// run a wallet owner listener
-	let arg_vec = vec!["grin-wallet", "-p", "password", "owner_api", "-l", "33420"];
+	let arg_vec = vec![
+		"lurker-wallet",
+		"-p",
+		"password",
+		"owner_api",
+		"-l",
+		"33420",
+	];
 	thread::spawn(move || {
-		let yml = load_yaml!("../src/bin/grin-wallet.yml");
+		let yml = load_yaml!("../src/bin/lurker-wallet.yml");
 		let app = App::from_yaml(yml);
 		execute_command(&app, test_dir, "wallet1", &client1, arg_vec.clone()).unwrap();
 	});

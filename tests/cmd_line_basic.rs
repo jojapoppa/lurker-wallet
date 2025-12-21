@@ -44,11 +44,11 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	let chain = wallet_proxy.chain.clone();
 
 	// load app yaml. If it don't exist, just say so and exit
-	let yml = load_yaml!("../src/bin/grin-wallet.yml");
+	let yml = load_yaml!("../src/bin/lurker-wallet.yml");
 	let app = App::from_yaml(yml);
 
 	// wallet init
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "init", "-h"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "init", "-h"];
 	// should create new wallet file
 	let client1 = LocalWalletClient::new("wallet1", wallet_proxy.tx.clone());
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec.clone())?;
@@ -75,7 +75,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	);
 
 	// Create wallet 2
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "init", "-h"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "init", "-h"];
 	let client2 = LocalWalletClient::new("wallet2", wallet_proxy.tx.clone());
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec.clone())?;
 
@@ -102,11 +102,18 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	});
 
 	// Create some accounts in wallet 1
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "account", "-c", "mining"];
+	let arg_vec = vec![
+		"lurker-wallet",
+		"-p",
+		"password1",
+		"account",
+		"-c",
+		"mining",
+	];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"account",
@@ -117,7 +124,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// Create some accounts in wallet 2
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"account",
@@ -129,7 +136,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	assert!(execute_command(&app, test_dir, "wallet2", &client2, arg_vec).is_err());
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"account",
@@ -139,11 +146,11 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 
 	// let's see those accounts
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "account"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "account"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// let's see those accounts
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "account"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "account"];
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 
 	// Mine a bit into wallet 1 so we have something to send
@@ -167,7 +174,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_framework::award_blocks_to_wallet(&chain, wallet1.clone(), mask1, bh as usize, false);
 
 	// Update info and check
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "-a", "mining", "info"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "-a", "mining", "info"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// try a file exchange
@@ -177,7 +184,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	);
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -186,11 +193,11 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		"10",
 	];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
-	let arg_vec = vec!["grin-wallet", "-a", "mining", "-p", "password1", "txs"];
+	let arg_vec = vec!["lurker-wallet", "-a", "mining", "-p", "password1", "txs"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"-a",
@@ -210,7 +217,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	);
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",
@@ -252,10 +259,17 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	bh += 10;
 
 	// update info for each
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "-a", "mining", "info"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "-a", "mining", "info"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "-a", "account_1", "info"];
+	let arg_vec = vec![
+		"lurker-wallet",
+		"-p",
+		"password2",
+		"-a",
+		"account_1",
+		"info",
+	];
 	execute_command(&app, test_dir, "wallet2", &client1, arg_vec)?;
 
 	// check results in wallet 2
@@ -295,7 +309,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		},
 	)?;
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -310,7 +324,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"-a",
@@ -325,7 +339,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",
@@ -363,7 +377,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	// Send encrypted from wallet 1 to wallet 2
 	// output wallet 2's address for test creation purposes,
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"-a",
@@ -374,7 +388,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// Send encrypted to wallet 2
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -391,7 +405,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"-a",
@@ -408,7 +422,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	);
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",
@@ -445,7 +459,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// Send to self
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -464,7 +478,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -481,7 +495,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	);
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",
@@ -518,7 +532,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// Another file exchange, don't send, but unlock with repair command
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -528,12 +542,12 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "scan", "-d"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "scan", "-d"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// Another file exchange, cancel this time
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -543,11 +557,11 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
-	let arg_vec = vec!["grin-wallet", "-a", "mining", "-p", "password1", "txs"];
+	let arg_vec = vec!["lurker-wallet", "-a", "mining", "-p", "password1", "txs"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -559,7 +573,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// issue an invoice tx, wallet 2
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "invoice", "65"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "invoice", "65"];
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 	let file_name = format!(
 		"{}/wallet2/slatepack/0436430c-2b02-624c-2032-570501212b06.I1.slatepack",
@@ -568,7 +582,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// now pay the invoice tx, wallet 1
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",
@@ -586,7 +600,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// and finalize, wallet 2
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"finalize",
@@ -600,12 +614,12 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	//bh += 5;
 
 	// txs and outputs (mostly spit out for a visual in test logs)
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "-a", "mining", "txs"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password1", "-a", "mining", "txs"];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// message output (mostly spit out for a visual in test logs)
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -617,13 +631,20 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
 	// txs and outputs (mostly spit out for a visual in test logs)
-	let arg_vec = vec!["grin-wallet", "-p", "password1", "-a", "mining", "outputs"];
+	let arg_vec = vec![
+		"lurker-wallet",
+		"-p",
+		"password1",
+		"-a",
+		"mining",
+		"outputs",
+	];
 	execute_command(&app, test_dir, "wallet1", &client1, arg_vec)?;
 
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "txs"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "txs"];
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "outputs"];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "outputs"];
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 
 	// get tx output via -tx parameter
@@ -641,7 +662,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 			Ok(())
 		},
 	)?;
-	let arg_vec = vec!["grin-wallet", "-p", "password2", "txs", "-t", &tx_id[..]];
+	let arg_vec = vec!["lurker-wallet", "-p", "password2", "txs", "-t", &tx_id[..]];
 	execute_command(&app, test_dir, "wallet2", &client2, arg_vec)?;
 
 	// bit of mining
@@ -649,7 +670,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 
 	// Test wallet sweep
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password1",
 		"-a",
@@ -663,7 +684,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-p",
 		"password2",
 		"-a",
@@ -678,7 +699,7 @@ fn command_line_test_impl(test_dir: &str) -> Result<(), lurker_wallet_controller
 		test_dir
 	);
 	let arg_vec = vec![
-		"grin-wallet",
+		"lurker-wallet",
 		"-a",
 		"mining",
 		"-p",

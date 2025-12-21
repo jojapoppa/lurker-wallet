@@ -67,7 +67,7 @@ where
 	/// default is assumed to be ~/.grin/main/wallet_data (or testnet equivalent)
 	fn get_top_level_directory(&self) -> Result<String, Error>;
 
-	/// Output a grin-wallet.toml file into the current top-level system wallet directory
+	/// Output a lurker-wallet.toml file into the current top-level system wallet directory
 	fn create_config(
 		&self,
 		chain_type: &global::ChainTypes,

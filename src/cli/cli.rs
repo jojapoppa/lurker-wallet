@@ -36,8 +36,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-const COLORED_PROMPT: &'static str = "\x1b[36mgrin-wallet>\x1b[0m ";
-const PROMPT: &'static str = "grin-wallet> ";
+const COLORED_PROMPT: &'static str = "\x1b[36mlurker-wallet>\x1b[0m ";
+const PROMPT: &'static str = "lurker-wallet> ";
 //const HISTORY_PATH: &str = ".history";
 
 // static for keeping track of current stdin buffer contents
@@ -160,7 +160,7 @@ where
 		let _ = reader.load_history(&history_file);
 	}*/
 
-	let yml = load_yaml!("../bin/grin-wallet.yml");
+	let yml = load_yaml!("../bin/lurker-wallet.yml");
 	let mut app = App::from_yaml(yml).version(crate_version!());
 	let mut keychain_mask = keychain_mask;
 
@@ -190,9 +190,9 @@ where
 					*contents = String::from("");
 				}
 
-				// Just add 'grin-wallet' to each command behind the scenes
+				// Just add 'lurker-wallet' to each command behind the scenes
 				// so we don't need to maintain a separate definition file
-				let augmented_command = format!("grin-wallet {}", command);
+				let augmented_command = format!("lurker-wallet {}", command);
 				let args =
 					app.get_matches_from_safe_borrow(augmented_command.trim().split_whitespace());
 				let done = match args {
