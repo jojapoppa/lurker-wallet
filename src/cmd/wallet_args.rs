@@ -217,35 +217,31 @@ fn prompt_pay_invoice(slate: &Slate, dest: &str) -> Result<bool, ParseError> {
 	}
 }
 
-// instantiate wallet (needed by most functions)
-
-pub fn inst_wallet<L, C, K>(
+pub fn inst_wallet<'a, L, C, K>(
 	config: WalletConfig,
 	node_client: C,
-) -> Result<Arc<Mutex<Box<dyn WalletInst<'static, L, C, K>>>>, ParseError>
+) -> Result<Arc<Mutex<Box<dyn WalletInst<'a, L, C, K>>>>, ParseError>
 where
-	DefaultWalletImpl<'static, C>: WalletInst<'static, L, C, K>,
-	L: WalletLCProvider<'static, C, K>,
-	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	DefaultWalletImpl<'a, C>: WalletInst<'a, L, C, K>,
+	L: WalletLCProvider<'a, C, K>,
+	C: NodeClient + 'a,
+	K: keychain::Keychain + 'a,
 {
-	let mut wallet = Box::new(DefaultWalletImpl::<'static, C>::new(node_client.clone()).unwrap())
-		as Box<dyn WalletInst<'static, L, C, K>>;
-	let lc = wallet.lc_provider().unwrap();
-	let _ = lc.set_top_level_directory(&config.data_file_dir);
-	Ok(Arc::new(Mutex::new(wallet)))
-}
+	let wallet_data_path = format!("{}/wallet_data", config.data_file_dir);
+	let mut wallet = Box::new(
+		DefaultWalletImpl::<'a, C>::new(&wallet_data_path)
+			.map_err(|e| ParseError::IOError(format!("Failed to create wallet backend: {}", e)))?,
+	) as Box<dyn WalletInst<'a, L, C, K>>;
 
-// parses a required value, or throws error with message otherwise
-fn parse_required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ParseError> {
-	let arg = args.value_of(name);
-	match arg {
-		Some(ar) => Ok(ar),
-		None => {
-			let msg = format!("Value for argument '{}' is required in this context", name,);
-			Err(ParseError::ArgumentError(msg))
-		}
-	}
+	let lc = wallet
+		.lc_provider()
+		.map_err(|e| ParseError::IOError(format!("Failed to get lifecycle provider: {}", e)))?;
+
+	let _ = lc.set_top_level_directory(&config.data_file_dir);
+
+	let wallet = wallet.with_node_client(node_client);
+
+	Ok(Arc::new(Mutex::new(wallet)))
 }
 
 // parses an optional value, throws error if value isn't provided
@@ -1105,8 +1101,10 @@ where
 	}
 }
 
-pub fn parse_and_execute<L, C, K>(
-	owner_api: &mut Owner<L, C, K>,
+// src/cmd/wallet_args.rs — fix the lifetime in parse_and_execute
+
+pub fn parse_and_execute<'a, L, C, K>(
+	owner_api: &mut Owner<'a, L, C, K>,
 	keychain_mask: Option<SecretKey>,
 	wallet_config: &WalletConfig,
 	tor_config: &TorConfig,
@@ -1116,10 +1114,10 @@ pub fn parse_and_execute<L, C, K>(
 	cli_mode: bool,
 ) -> Result<(), Error>
 where
-	DefaultWalletImpl<'static, C>: WalletInst<'static, L, C, K>,
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
+	DefaultWalletImpl<'a, C>: WalletInst<'a, L, C, K>,
+	L: WalletLCProvider<'a, C, K> + 'a,
+	C: NodeClient + 'a,
+	K: keychain::Keychain + 'a,
 {
 	let km = (&keychain_mask).as_ref();
 
@@ -1140,7 +1138,7 @@ where
 			command::init(owner_api, &global_wallet_args, a, test_mode)
 		}
 		("recover", Some(_)) => {
-			let a = arg_parse!(parse_recover_args(&global_wallet_args,));
+			let a = arg_parse!(parse_recover_args(&global_wallet_args));
 			command::recover(owner_api, a)
 		}
 		("listen", Some(args)) => {
@@ -1221,9 +1219,7 @@ where
 			command::issue_invoice_tx(owner_api, km, a)
 		}
 		("pay", Some(args)) => {
-			// get slate first
 			let (slate, address) = get_slate(owner_api, km, args)?;
-
 			let a = arg_parse!(parse_process_invoice_args(
 				&args, !test_mode, slate, address
 			));
@@ -1285,7 +1281,7 @@ where
 		("address", Some(_)) => command::address(owner_api, &global_wallet_args, km),
 		("scan", Some(args)) => {
 			let a = arg_parse!(parse_check_args(&args));
-			command::scan(owner_api, km, a)
+			command::scan(owner_api, km, a).map_err(Error::from)
 		}
 		("open", Some(_)) => {
 			// for CLI mode only, should be handled externally
@@ -1297,7 +1293,7 @@ where
 		}
 		_ => {
 			let msg = format!("Unknown wallet command, use 'lurker-wallet help' for details");
-			return Err(Error::ArgumentError(msg));
+			Err(Error::ArgumentError(msg))
 		}
 	}
 }

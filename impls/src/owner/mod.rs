@@ -46,7 +46,7 @@ where
 
 impl<'a, L, C, K> Owner<'a, L, C, K>
 where
-	L: WalletLCProvider<'a, C, K> + WalletOutputBatch<K> + Sync + Send + 'a,
+	L: WalletLCProvider<'a, C, K> + Sync + Send + 'a,
 	C: NodeClient + Sync + Send + 'a,
 	K: Keychain + Sync + Send + 'a,
 {
@@ -118,7 +118,8 @@ where
 	) -> Result<String, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let sender = if let Some(index) = sender_index {
 			let sender_priv_key = k.derive_key(
@@ -160,7 +161,8 @@ where
 	) -> Result<VersionedSlate, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let packer = Slatepacker::new(SlatepackerArgs {
 			sender: None,
@@ -183,7 +185,8 @@ where
 	) -> Result<Slatepack, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let packer = Slatepacker::new(SlatepackerArgs {
 			sender: None,
@@ -217,7 +220,9 @@ where
 	) -> Result<BuiltOutput, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
+
 		let secp_instance = static_secp_instance();
 		let mut secp = secp_instance.lock();
 		let blind = SecretKey::new(&mut secp, &mut thread_rng());
@@ -242,7 +247,8 @@ where
 	) -> Result<SlatepackAddress, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let priv_key = k.derive_key(
 			derivation_index as u64,
@@ -266,7 +272,8 @@ where
 	) -> Result<Ed25519SecretKey, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let mut backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let root_key_id = w.parent_key_id().clone();
 

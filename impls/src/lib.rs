@@ -45,6 +45,10 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use bincode;
+use lurker_util::ToHex;
+use serde_json;
+
 pub use lurker_wallet_libwallet::*;
 pub type DefaultWalletImpl<'a, C> = SledBackend<'a, C, ExtKeychain>;
 
@@ -278,6 +282,179 @@ where
 	}
 	fn init_status(&mut self) -> Result<WalletInitStatus, LibWalletError> {
 		unimplemented!()
+	}
+}
+
+impl<'a, C> WalletOutputBatch<ExtKeychain> for SledBackend<'a, C, ExtKeychain>
+where
+	C: NodeClient + 'a,
+{
+	fn keychain(&mut self) -> &mut ExtKeychain {
+		self.keychain.as_mut().unwrap()
+	}
+
+	fn save(&mut self, out: OutputData) -> Result<(), LibWalletError> {
+		let key = out.key_id.to_hex();
+		let value = serde_json::to_vec(&out)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.outputs
+			.insert(key.as_bytes(), value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn delete(&mut self, id: &Identifier, _mmr_index: &Option<u64>) -> Result<(), LibWalletError> {
+		self.outputs
+			.remove(id.to_hex().as_bytes())
+			.map_err(|e| LibWalletError::Backend(format!("Sled delete error: {}", e)))?;
+		Ok(())
+	}
+
+	fn iter(&self) -> Box<dyn Iterator<Item = OutputData>> {
+		Box::new(
+			self.outputs
+				.iter()
+				.values()
+				.filter_map(|res| res.ok().and_then(|v| serde_json::from_slice(&v).ok())),
+		)
+	}
+
+	fn lock_output(&mut self, out: &mut OutputData) -> Result<(), LibWalletError> {
+		out.lock();
+		self.save(out.clone())
+	}
+
+	fn get(&self, id: &Identifier, _mmr_index: &Option<u64>) -> Result<OutputData, LibWalletError> {
+		let key = id.to_hex().into_bytes();
+		if let Some(value) = self
+			.outputs
+			.get(key)
+			.map_err(|e| LibWalletError::Backend(format!("Sled get error: {}", e)))?
+		{
+			serde_json::from_slice(&value)
+				.map_err(|e| LibWalletError::Backend(format!("Deserialization error: {}", e)))
+		} else {
+			Err(LibWalletError::GenericError("Output not found".to_string()))
+		}
+	}
+
+	fn save_child_index(
+		&mut self,
+		parent_key_id: &Identifier,
+		child_n: u32,
+	) -> Result<(), LibWalletError> {
+		let key = parent_key_id.to_hex();
+		let value = bincode::serialize(&child_n)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.child_indices
+			.insert(key.as_bytes(), value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn save_last_confirmed_height(
+		&mut self,
+		parent_key_id: &Identifier,
+		height: u64,
+	) -> Result<(), LibWalletError> {
+		// Optional: store per-account last confirmed height if needed
+		Ok(())
+	}
+
+	fn save_last_scanned_block(&mut self, block: ScannedBlockInfo) -> Result<(), LibWalletError> {
+		// You can add a dedicated tree or use a key like "last_scanned"
+		let value = serde_json::to_vec(&block)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.db
+			.insert("last_scanned_block", value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn save_init_status(&mut self, value: WalletInitStatus) -> Result<(), LibWalletError> {
+		let value = serde_json::to_vec(&value)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.db
+			.insert("init_status", value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn next_tx_log_id(&mut self, parent_key_id: &Identifier) -> Result<u32, LibWalletError> {
+		let key = format!("next_tx_id_{}", parent_key_id.to_hex());
+		let current = self.db.get(&key)?;
+		let next = current.map_or(1, |v| bincode::deserialize(&v).unwrap_or(1) + 1);
+		let value = bincode::serialize(&next)
+			.map_err(|e| LibWalletError::Backend(format!("Bincode serialization error: {}", e)))?;
+		self.db.insert(key, value)?;
+		Ok(next)
+	}
+
+	fn save_tx_log_entry(
+		&mut self,
+		t: TxLogEntry,
+		parent_id: &Identifier,
+	) -> Result<(), LibWalletError> {
+		let key = format!("tx_log_{}_{}", parent_id.to_hex(), t.id);
+		let value = serde_json::to_vec(&t)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.tx_log
+			.insert(key.as_bytes(), value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn tx_log_iter(&self) -> Box<dyn Iterator<Item = TxLogEntry>> {
+		Box::new(
+			self.tx_log
+				.iter()
+				.values()
+				.filter_map(|res| res.ok().and_then(|v| serde_json::from_slice(&v).ok())),
+		)
+	}
+
+	fn save_acct_path(&mut self, mapping: AcctPathMapping) -> Result<(), LibWalletError> {
+		let key = mapping.label.clone();
+		let value = serde_json::to_vec(&mapping)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.acct_path_mapping
+			.insert(key.as_bytes(), value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn acct_path_iter(&self) -> Box<dyn Iterator<Item = AcctPathMapping>> {
+		Box::new(
+			self.acct_path_mapping
+				.iter()
+				.values()
+				.filter_map(|res| res.ok().and_then(|v| serde_json::from_slice(&v).ok())),
+		)
+	}
+
+	fn save_private_context(
+		&mut self,
+		slate_id: &[u8],
+		ctx: &Context,
+	) -> Result<(), LibWalletError> {
+		let value = serde_json::to_vec(ctx)
+			.map_err(|e| LibWalletError::Backend(format!("Serialization error: {}", e)))?;
+		self.private_context
+			.insert(slate_id, value)
+			.map_err(|e| LibWalletError::Backend(format!("Sled insert error: {}", e)))?;
+		Ok(())
+	}
+
+	fn delete_private_context(&mut self, slate_id: &[u8]) -> Result<(), LibWalletError> {
+		self.private_context.remove(slate_id)?;
+		Ok(())
+	}
+
+	fn commit(&self) -> Result<(), LibWalletError> {
+		self.db
+			.flush()
+			.map_err(|e| LibWalletError::Backend(format!("Flush error: {}", e)))?;
+		Ok(())
 	}
 }
 

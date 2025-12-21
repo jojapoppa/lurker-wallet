@@ -1,4 +1,4 @@
-// Copyright 2021 The Grin Developers
+// Copyright 2021 The Lurker & Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,20 @@
 use crate::cmd::wallet_args;
 use crate::util::secp::key::SecretKey;
 use crate::util::Mutex;
+use api_common::types::Token;
+use api_common::OwnerRpc;
 use clap::App;
-//use colored::Colorize;
+use clap::ArgMatches;
 use lurker_keychain as keychain;
-use api_common::Owner;
-use lurker_wallet_config::{TorConfig, WalletConfig};
+use lurker_wallet_config::WalletConfig;
+use lurker_wallet_controller::command;
 use lurker_wallet_controller::command::GlobalArgs;
-use lurker_wallet_controller::Error;
-use lurker_wallet_impls::DefaultWalletImpl;
-use lurker_wallet_libwallet::{NodeClient, StatusMessage, WalletInst, WalletLCProvider};
+use lurker_wallet_impls::DefaultLCProvider;
+use lurker_wallet_impls::Error;
+use lurker_wallet_impls::Owner;
+use lurker_wallet_impls::{DefaultWalletImpl, HTTPNodeClient};
+use lurker_wallet_libwallet::WalletOutputBatch;
+use lurker_wallet_libwallet::{NodeClient, WalletInst, WalletLCProvider};
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -31,110 +36,70 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{CompletionType, Config, Context, EditMode, Editor, Helper, OutputStreamType};
 use std::borrow::Cow::{self, Borrowed, Owned};
-use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 
 const COLORED_PROMPT: &'static str = "\x1b[36mlurker-wallet>\x1b[0m ";
 const PROMPT: &'static str = "lurker-wallet> ";
-//const HISTORY_PATH: &str = ".history";
 
 // static for keeping track of current stdin buffer contents
 lazy_static! {
 	static ref STDIN_CONTENTS: Mutex<String> = Mutex::new(String::from(""));
 }
 
-use lurker_core::mesh::mesh_ip;
-
-let mut mesh = MeshManager::new();
-let my_ip = match mesh.start().await {
-    Ok(ip) => ip,
-    Err(e) => {
-        error!("Failed to start Yggdrasil mesh: {}", e);
-        error!("Lurker requires Yggdrasil for privacy — exiting");
-        std::process::exit(1);
-    }
-
-lurker_core::mesh::set_mesh_ip(my_ip.clone());
-info!("Lurker CLI running on Yggdrasil: {}", my_ip);
-println!("My private address: {}", mesh_ip());
-
 #[macro_export]
 macro_rules! cli_message_inline {
-	($fmt_string:expr, $( $arg:expr ),+) => {
-			{
-					use std::io::Write;
-					let contents = STDIN_CONTENTS.lock();
-					/* use crate::common::{is_cli, COLORED_PROMPT}; */
-					/* if is_cli() { */
-							print!("\r");
-							print!($fmt_string, $( $arg ),*);
-							print!(" {}", COLORED_PROMPT);
-							print!("\x1B[J");
-							print!("{}", *contents);
-							std::io::stdout().flush().unwrap();
-					/*} else {
-							info!($fmt_string, $( $arg ),*);
-					}*/
-			}
-	};
+    ($fmt_string:expr, $( $arg:expr ),+) => {
+        {
+            use std::io::Write;
+            let contents = STDIN_CONTENTS.lock();
+            print!("\r");
+            print!($fmt_string, $( $arg ),*);
+            print!(" {}", COLORED_PROMPT);
+            print!("\x1B[J");
+            print!("{}", *contents);
+            std::io::stdout().flush().unwrap();
+        }
+    };
 }
 
 #[macro_export]
 macro_rules! cli_message {
-	($fmt_string:expr, $( $arg:expr ),+) => {
-			{
-					use std::io::Write;
-					/* use crate::common::{is_cli, COLORED_PROMPT}; */
-					/* if is_cli() { */
-							//print!("\r");
-							print!($fmt_string, $( $arg ),*);
-							println!();
-							std::io::stdout().flush().unwrap();
-					/*} else {
-							info!($fmt_string, $( $arg ),*);
-					}*/
-			}
-	};
+    ($fmt_string:expr, $( $arg:expr ),+) => {
+        {
+            use std::io::Write;
+            print!($fmt_string, $( $arg ),*);
+            println!();
+            std::io::stdout().flush().unwrap();
+        }
+    };
 }
 
-/// function to catch updates
-pub fn start_updater_thread(rx: Receiver<StatusMessage>) -> Result<(), Error> {
-	let _ = thread::Builder::new()
-		.name("wallet-updater-status".to_string())
-		.spawn(move || loop {
-			while let Ok(m) = rx.recv() {
-				match m {
-					StatusMessage::UpdatingOutputs(s) => cli_message_inline!("{}", s),
-					StatusMessage::UpdatingTransactions(s) => cli_message_inline!("{}", s),
-					StatusMessage::FullScanWarn(s) => cli_message_inline!("{}", s),
-					StatusMessage::Scanning(_, m) => {
-						//debug!("{}", s);
-						cli_message_inline!("Scanning - {}% complete - Please Wait", m);
-					}
-					StatusMessage::ScanningComplete(s) => cli_message_inline!("{}", s),
-					StatusMessage::UpdateWarning(s) => cli_message_inline!("{}", s),
-				}
-			}
-		});
-	Ok(())
+/// Function to check if the command requires a keychain mask (i.e., write/signing operation)
+fn requires_mask(args: &ArgMatches) -> bool {
+	matches!(
+		args.subcommand().0,
+		"send" | "pay" | "invoice" | "finalize" | "repost" | "cancel" | "export_proof"
+	)
 }
 
-pub fn command_loop<L, C, K>(
-	wallet_inst: Arc<Mutex<Box<dyn WalletInst<'static, L, C, K>>>>,
-	keychain_mask: Option<SecretKey>,
+pub fn command_loop(
+	wallet_inst: Arc<
+		Mutex<
+			Box<
+				dyn WalletInst<
+						'static,
+						DefaultLCProvider<'static, HTTPNodeClient>,
+						HTTPNodeClient,
+						keychain::ExtKeychain,
+					> + 'static,
+			>,
+		>,
+	>,
+	mut keychain_mask: Option<SecretKey>,
 	wallet_config: &WalletConfig,
-	tor_config: &TorConfig,
-	global_wallet_args: &GlobalArgs,
+	global_wallet_args: &command::GlobalArgs,
 	test_mode: bool,
-) -> Result<(), Error>
-where
-	DefaultWalletImpl<'static, C>: WalletInst<'static, L, C, K>,
-	L: WalletLCProvider<'static, C, K> + 'static,
-	C: NodeClient + 'static,
-	K: keychain::Keychain + 'static,
-{
+) -> Result<(), Error> {
 	let editor = Config::builder()
 		.history_ignore_space(true)
 		.completion_type(CompletionType::List)
@@ -148,41 +113,30 @@ where
 		MatchingBracketHighlighter::new(),
 	)));
 
-	/*let history_file = self
-		.api
-		.config()
-		.get_data_path()
-		.unwrap()
-		.parent()
-		.unwrap()
-		.join(HISTORY_PATH);
-	if history_file.exists() {
-		let _ = reader.load_history(&history_file);
-	}*/
-
 	let yml = load_yaml!("../bin/lurker-wallet.yml");
 	let mut app = App::from_yaml(yml).version(crate_version!());
-	let mut keychain_mask = keychain_mask;
 
-	// catch updater messages
-	let (tx, rx) = channel();
-	let mut owner_api = Owner::new(wallet_inst, Some(tx));
-	start_updater_thread(rx)?;
+	let mut owner_api = Owner::new(wallet_inst.clone(), keychain_mask.clone());
 
-	// start the automatic updater
-	owner_api.start_updater((&keychain_mask).as_ref(), Duration::from_secs(30))?;
+	// Start the built-in updater
+	owner_api.start_updater(
+		Token {
+			keychain_mask: keychain_mask.clone(),
+		},
+		30,
+	)?;
+
 	let mut wallet_opened = false;
+
 	loop {
 		match reader.readline(PROMPT) {
 			Ok(command) => {
 				if command.is_empty() {
 					continue;
 				}
-				// TODO tidy up a bit
 				if command.to_lowercase() == "exit" {
 					break;
 				}
-				/* use crate::common::{is_cli, COLORED_PROMPT}; */
 
 				// reset buffer
 				{
@@ -190,78 +144,88 @@ where
 					*contents = String::from("");
 				}
 
-				// Just add 'lurker-wallet' to each command behind the scenes
-				// so we don't need to maintain a separate definition file
+				// Augment command for clap parsing
 				let augmented_command = format!("lurker-wallet {}", command);
-				let args =
-					app.get_matches_from_safe_borrow(augmented_command.trim().split_whitespace());
-				let done = match args {
-					Ok(args) => {
-						// handle opening /closing separately
-						keychain_mask = match args.subcommand() {
-							("open", Some(_)) => {
-								let mut wallet_lock = owner_api.wallet_inst.lock();
-								let lc = wallet_lock.lc_provider().unwrap();
-								let mask = match lc.open_wallet(
-									None,
-									wallet_args::prompt_password(&global_wallet_args.password),
-									false,
-									false,
-								) {
-									Ok(m) => {
-										wallet_opened = true;
-										m
-									}
-									Err(e) => {
-										cli_message!("{}", e);
-										None
-									}
-								};
-								if let Some(account) = args.value_of("account") {
-									if wallet_opened {
-										let wallet_inst = lc.wallet_inst()?;
-										wallet_inst.set_parent_key_id_by_name(account)?;
-									}
-								}
-								mask
+				let args = match app
+					.get_matches_from_safe_borrow(augmented_command.trim().split_whitespace())
+				{
+					Ok(a) => a,
+					Err(e) => {
+						cli_message!("{}", e);
+						continue;
+					}
+				};
+
+				// Prompt for password/mask if command requires signing and mask is None
+				if requires_mask(&args) && keychain_mask.is_none() {
+					let wallet_lock = wallet_inst.lock();
+					let lc = wallet_lock.lc_provider().unwrap();
+					keychain_mask = match lc.open_wallet(
+						None,
+						wallet_args::prompt_password(&global_wallet_args.password),
+						false,
+						false,
+					) {
+						Ok(m) => m,
+						Err(e) => {
+							cli_message!("{}", e);
+							continue;
+						}
+					};
+				}
+
+				// Handle open/close separately
+				keychain_mask = match args.subcommand() {
+					("open", Some(_)) => {
+						let wallet_lock = wallet_inst.lock();
+						let lc = wallet_lock.lc_provider().unwrap();
+						let mask = match lc.open_wallet(
+							None,
+							wallet_args::prompt_password(&global_wallet_args.password),
+							false,
+							false,
+						) {
+							Ok(m) => {
+								wallet_opened = true;
+								m
 							}
-							("close", Some(_)) => {
-								let mut wallet_lock = owner_api.wallet_inst.lock();
-								let lc = wallet_lock.lc_provider().unwrap();
-								lc.close_wallet(None)?;
+							Err(e) => {
+								cli_message!("{}", e);
 								None
 							}
-							_ => keychain_mask,
 						};
-						match wallet_args::parse_and_execute(
-							&mut owner_api,
-							keychain_mask.clone(),
-							&wallet_config,
-							&tor_config,
-							&global_wallet_args,
-							&args,
-							test_mode,
-							true,
-						) {
-							Ok(_) => {
-								cli_message!("Command '{}' completed", args.subcommand().0);
-								false
-							}
-							Err(err) => {
-								cli_message!("{}", err);
-								false
+						if let Some(account) = args.value_of("account") {
+							if wallet_opened {
+								let wallet_inst_inner = lc.wallet_inst()?;
+								wallet_inst_inner.set_parent_key_id_by_name(account)?;
 							}
 						}
+						mask
+					}
+					("close", Some(_)) => {
+						let wallet_lock = wallet_inst.lock();
+						let lc = wallet_lock.lc_provider().unwrap();
+						lc.close_wallet(None)?;
+						None
+					}
+					_ => keychain_mask,
+				};
+
+				match wallet_args::parse_and_execute(
+					&mut owner_api,
+					keychain_mask.clone(),
+					&wallet_config,
+					&global_wallet_args,
+					&args,
+					test_mode,
+					true,
+				) {
+					Ok(_) => {
+						cli_message!("Command '{}' completed", args.subcommand().0);
 					}
 					Err(err) => {
 						cli_message!("{}", err);
-						false
 					}
-				};
-				reader.add_history_entry(command);
-				if done {
-					println!();
-					break;
 				}
 			}
 			Err(err) => {
@@ -271,8 +235,6 @@ where
 		}
 	}
 	Ok(())
-
-	//let _ = reader.save_history(&history_file);
 }
 
 struct EditorHelper(FilenameCompleter, MatchingBracketHighlighter);
@@ -323,5 +285,6 @@ impl Highlighter for EditorHelper {
 		self.1.highlight_char(line, pos)
 	}
 }
+
 impl Validator for EditorHelper {}
 impl Helper for EditorHelper {}

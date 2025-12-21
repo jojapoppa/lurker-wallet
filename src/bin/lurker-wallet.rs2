@@ -1,5 +1,3 @@
-// src/bin/lurker-wallet.rs — updated with Yggdrasil init and default info logging
-
 // Copyright 2021 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Main for building the binary of a Lurker Wallet
+//! Main for building the binary of a Grin Reference Wallet
 
 #[macro_use]
 extern crate clap;
@@ -36,6 +34,19 @@ use lurker_wallet::cmd;
 use lurker_core::mesh::mesh_ip;
 use lurker_wallet::mesh::MeshManager;
 
+let mut mesh = MeshManager::new();
+let my_ip = match mesh.start().await {
+    Ok(ip) => ip,
+    Err(e) => {
+        error!("Failed to start Yggdrasil mesh: {}", e);
+        error!("Lurker requires Yggdrasil for privacy — exiting");
+        std::process::exit(1);
+    }
+};
+lurker_core::mesh::set_mesh_ip(my_ip.clone());
+info!("Lurker is PRIVATE on Yggdrasil: {}", my_ip);
+println!("My private address: {}", mesh_ip());
+
 // include build information
 pub mod built_info {
 	include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -44,7 +55,7 @@ pub mod built_info {
 pub fn info_strings() -> (String, String) {
 	(
 		format!(
-			"This is Lurker Wallet version {}{}, built for {} by {}.",
+			"This is Grin Wallet version {}{}, built for {} by {}.",
 			built_info::PKG_VERSION,
 			built_info::GIT_VERSION.map_or_else(|| "".to_owned(), |v| format!(" (git {})", v)),
 			built_info::TARGET,
@@ -129,6 +140,8 @@ fn real_main() -> i32 {
 		},
 	};
 
+	//config.members.as_mut().unwrap().wallet.chain_type = Some(chain_type);
+
 	// Load logging config
 	let mut l = config.members.as_mut().unwrap().logging.clone().unwrap();
 	// no logging to stdout if we're running cli
@@ -136,12 +149,6 @@ fn real_main() -> i32 {
 		("cli", _) => l.log_to_stdout = true,
 		_ => {}
 	};
-
-	// Set default log level to info if RUST_LOG is not set
-	if env::var("RUST_LOG").is_err() {
-		env::set_var("RUST_LOG", "info");
-	}
-
 	init_logger(Some(l), None);
 	info!(
 		"Using wallet configuration file at {}",
@@ -163,20 +170,6 @@ fn real_main() -> i32 {
 	);
 
 	global::init_global_accept_fee_base(config.members.as_ref().unwrap().wallet.accept_fee_base());
-
-	// Yggdrasil mesh initialization
-	let mut mesh = MeshManager::new();
-	let my_ip = match mesh.start() {
-		Ok(ip) => ip,
-		Err(e) => {
-			error!("Failed to start Yggdrasil mesh: {}", e);
-			error!("Lurker requires Yggdrasil for privacy — exiting");
-			return 1;
-		}
-	};
-	lurker_core::mesh::set_mesh_ip(my_ip.clone());
-	info!("Lurker is PRIVATE on Yggdrasil: {}", my_ip);
-	println!("My private address: {}", mesh_ip());
 
 	let wallet_config = config.clone().members.unwrap().wallet;
 	let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, None).unwrap();

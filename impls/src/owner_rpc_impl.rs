@@ -35,7 +35,7 @@ use uuid::Uuid;
 
 impl<'a, L, C, K> OwnerRpc for Owner<'a, L, C, K>
 where
-	L: WalletLCProvider<'a, C, K> + WalletOutputBatch<K> + Sync + Send + 'a,
+	L: WalletLCProvider<'a, C, K> + Sync + Send + 'a,
 	C: NodeClient + Sync + Send + 'a,
 	K: Keychain + Sync + Send + 'a,
 {
@@ -296,7 +296,8 @@ where
 	) -> Result<SlatepackAddress, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let root_key_id = w.parent_key_id().clone();
 
@@ -323,7 +324,9 @@ where
 	) -> Result<Ed25519SecretKey, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let mut k = lc.keychain();
+		let backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
+
 		let priv_key = k.derive_key(
 			derivation_index as u64,
 			&w.parent_key_id().clone(),
@@ -354,7 +357,8 @@ where
 	) -> Result<VersionedSlate, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let base_args = SlatepackerArgs {
 			sender: None,
@@ -406,7 +410,8 @@ where
 	) -> Result<Slatepack, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let packer = Slatepacker::new(SlatepackerArgs {
 			sender: None,
@@ -445,7 +450,8 @@ where
 	) -> Result<BuiltOutput, Error> {
 		let mut w = self.wallet_inst.lock();
 		let mut lc = w.lc_provider()?;
-		let k = lc.keychain();
+		let backend = lc.wallet_inst()?;
+		let k = backend.keychain(self.keychain_mask.as_ref())?;
 
 		let secp_instance = static_secp_instance();
 		let mut secp = secp_instance.lock();
