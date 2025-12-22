@@ -500,14 +500,7 @@ where
 		None => w.parent_key_id(),
 	};
 
-	let mut slate = tx::new_tx_slate(
-		&mut *w,
-		args.amount,
-		false,
-		2,
-		use_test_rng,
-		args.ttl_blocks,
-	)?;
+	let mut slate = tx::new_tx_slate(&mut *w, args.amount, false, 2, use_test_rng)?;
 
 	if let Some(v) = args.target_slate_version {
 		slate.version_info.version = v;
@@ -690,11 +683,6 @@ where
 	}
 
 	let height = w.w2n_client().get_chain_tip()?.0;
-
-	// update ttl if desired
-	if let Some(b) = args.ttl_blocks {
-		ret_slate.ttl_cutoff_height = height + b;
-	}
 
 	// if this is compact mode, we need to create the transaction now
 	ret_slate.tx = Some(Slate::empty_transaction());

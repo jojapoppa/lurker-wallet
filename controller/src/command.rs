@@ -374,7 +374,6 @@ pub struct SendArgs {
 	pub max_outputs: usize,
 	pub target_slate_version: Option<u16>,
 	pub payment_proof_address: Option<SlatepackAddress>,
-	pub ttl_blocks: Option<u64>,
 	pub outfile: Option<String>,
 	pub slatepack_qr: bool,
 }
@@ -438,7 +437,6 @@ where
 			selection_strategy_is_use_all: args.selection_strategy == "all",
 			target_slate_version: args.target_slate_version,
 			payment_proof_recipient_address: args.payment_proof_address.clone(),
-			ttl_blocks: args.ttl_blocks,
 			late_lock: Some(args.late_lock),
 			..Default::default()
 		};
@@ -627,7 +625,6 @@ pub struct ProcessInvoiceArgs {
 	pub max_outputs: usize,
 	pub slate: Slate,
 	pub estimate_selection_strategies: bool,
-	pub ttl_blocks: Option<u64>,
 	pub outfile: Option<String>,
 	pub slatepack_qr: bool,
 }
@@ -661,7 +658,6 @@ where
 			max_outputs: args.max_outputs as u32,
 			num_change_outputs: 1,
 			selection_strategy_is_use_all: args.selection_strategy == "all",
-			ttl_blocks: args.ttl_blocks,
 			..Default::default()
 		};
 

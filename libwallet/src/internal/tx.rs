@@ -50,7 +50,6 @@ pub fn new_tx_slate<'a, T: ?Sized, C, K>(
 	is_invoice: bool,
 	num_participants: u8,
 	use_test_rng: bool,
-	ttl_blocks: Option<u64>,
 ) -> Result<Slate, Error>
 where
 	T: WalletBackend<'a, C, K>,
@@ -59,9 +58,7 @@ where
 {
 	let current_height = wallet.w2n_client().get_chain_tip()?.0;
 	let mut slate = Slate::blank(num_participants, is_invoice);
-	if let Some(b) = ttl_blocks {
-		slate.ttl_cutoff_height = current_height + b;
-	}
+
 	if use_test_rng {
 		{
 			let sc = SLATE_COUNTER.lock();

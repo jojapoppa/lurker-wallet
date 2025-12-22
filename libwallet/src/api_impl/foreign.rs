@@ -174,8 +174,7 @@ where
 			// and insert into original context
 
 			let current_height = w.w2n_client().get_chain_tip()?.0;
-			let mut temp_sl =
-				tx::new_tx_slate(&mut *w, context.amount, false, 2, false, args.ttl_blocks)?;
+			let mut temp_sl = tx::new_tx_slate(&mut *w, context.amount, false, 2, false)?;
 			let temp_context = selection::build_send_tx(
 				w,
 				&keychain,

@@ -151,11 +151,6 @@ subcommands:
             short: t
             long: stored_tx
             takes_value: true
-        - ttl_blocks:
-            help: Transaction expires after N blocks
-            short: b
-            long: ttl_blocks
-            takes_value: true
         - outfile:
             help: Custom output file
             short: u
@@ -259,11 +254,6 @@ subcommands:
             help: Invoice Slatepack file
             short: i
             long: input
-            takes_value: true
-        - ttl_blocks:
-            help: Transaction TTL
-            short: b
-            long: ttl_blocks
             takes_value: true
         - outfile:
             help: Output file override

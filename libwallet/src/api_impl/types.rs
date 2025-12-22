@@ -70,10 +70,6 @@ pub struct InitTxArgs {
 	/// down to the minimum slate version compatible with the current. If `None` the slate
 	/// is generated with the latest version.
 	pub target_slate_version: Option<u16>,
-	/// Number of blocks from current after which TX should be ignored
-	#[serde(with = "secp_ser::opt_string_or_u64")]
-	#[serde(default)]
-	pub ttl_blocks: Option<u64>,
 	/// If set, require a payment proof for the particular recipient
 	#[serde(default)]
 	pub payment_proof_recipient_address: Option<SlatepackAddress>,
@@ -114,7 +110,6 @@ impl Default for InitTxArgs {
 			num_change_outputs: 1,
 			selection_strategy_is_use_all: true,
 			target_slate_version: None,
-			ttl_blocks: None,
 			estimate_only: Some(false),
 			payment_proof_recipient_address: None,
 			late_lock: Some(false),

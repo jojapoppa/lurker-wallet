@@ -480,9 +480,6 @@ pub fn parse_send_args(args: &ArgMatches) -> Result<command::SendArgs, ParseErro
 	// fluff
 	let fluff = args.is_present("fluff");
 
-	// ttl_blocks
-	let ttl_blocks = parse_u64_or_none(args.value_of("ttl_blocks"));
-
 	// max_outputs
 	let max_outputs = 500;
 
@@ -534,7 +531,6 @@ pub fn parse_send_args(args: &ArgMatches) -> Result<command::SendArgs, ParseErro
 		fluff: fluff,
 		max_outputs: max_outputs,
 		payment_proof_address,
-		ttl_blocks,
 		target_slate_version: target_slate_version,
 		outfile,
 		skip_tor: args.is_present("manual"),
@@ -755,9 +751,6 @@ pub fn parse_process_invoice_args(
 	// estimate_selection_strategies
 	let estimate_selection_strategies = args.is_present("estimate_selection_strategies");
 
-	// ttl_blocks
-	let ttl_blocks = parse_u64_or_none(args.value_of("ttl_blocks"));
-
 	// max_outputs
 	let max_outputs = 500;
 
@@ -783,7 +776,6 @@ pub fn parse_process_invoice_args(
 		ret_address,
 		slate,
 		max_outputs,
-		ttl_blocks,
 		skip_tor: args.is_present("manual"),
 		outfile,
 		bridge,
