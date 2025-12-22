@@ -20,6 +20,9 @@
 extern crate clap;
 #[macro_use]
 extern crate log;
+
+use crate::cli::wallet_cli as cli;
+
 use crate::config::ConfigError;
 use crate::core::global;
 use crate::util::init_logger;

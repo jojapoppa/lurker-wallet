@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use crate::api::TLSConfig;
-use crate::cli::command_loop;
 use crate::config::GRIN_WALLET_DIR;
 use crate::util::file::get_first_line;
 use crate::util::secp::key::SecretKey;
 use crate::util::{Mutex, ZeroingString};
+use crate::wallet_cli::command_loop;
 use api_common::Owner;
 /// Argument parsing and error handling for wallet commands
 use clap::ArgMatches;
