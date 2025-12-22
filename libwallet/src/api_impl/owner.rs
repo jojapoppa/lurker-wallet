@@ -609,7 +609,7 @@ where
 		None => w.parent_key_id(),
 	};
 
-	let mut slate = tx::new_tx_slate(&mut *w, args.amount, true, 2, use_test_rng, None)?;
+	let mut slate = tx::new_tx_slate(&mut *w, args.amount, true, 2, use_test_rng)?;
 	let height = w.w2n_client().get_chain_tip()?.0;
 	let context = tx::add_output_to_slate(
 		&mut *w,
