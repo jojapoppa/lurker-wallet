@@ -47,7 +47,7 @@ pub fn parse_slatepack<L, C, K>(
 	input_slatepack_message: Option<String>,
 ) -> Result<(Slate, Option<SlatepackAddress>), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -60,7 +60,7 @@ pub fn parse_slatepack2<L, C, K>(
 	input_slatepack_message: Option<String>,
 ) -> Result<(Slate, Option<SlatepackAddress>), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -150,7 +150,7 @@ pub fn init<L, C, K>(
 	test_mode: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -183,7 +183,7 @@ pub fn recover<L, C, K>(
 	args: RecoverArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -200,7 +200,7 @@ pub fn rewind_hash<L, C, K>(
 	owner_api: &'static mut Owner<'static, L, C, K>,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -232,7 +232,7 @@ pub fn scan_rewind_hash<L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -281,7 +281,7 @@ pub fn listen<'a, L, C, K>(
 	test_mode: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
+	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
 	K: Keychain + Send + Sync + 'static,
 {
@@ -323,7 +323,7 @@ pub fn owner_api<'a, L, C, K>(
 	config: &WalletConfig,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
+	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -385,7 +385,7 @@ pub fn send<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -474,7 +474,7 @@ pub fn output_slatepack<L, C, K>(
 	show_qr: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -586,7 +586,7 @@ pub fn receive<'a, L, C, K>(
 	args: ReceiveArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -636,7 +636,7 @@ pub fn process_invoice<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -707,7 +707,7 @@ pub fn finalize<'a, L, C, K>(
 	args: FinalizeArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -777,7 +777,7 @@ pub fn issue_invoice_tx<'a, L, C, K>(
 	args: IssueInvoiceArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -812,7 +812,7 @@ pub fn info<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -842,7 +842,7 @@ pub fn outputs<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -891,7 +891,7 @@ pub fn txs<'a, L, C, K>(
 	dark_scheme: bool,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -948,7 +948,7 @@ pub fn post<'a, L, C, K>(
 	args: PostArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -978,7 +978,7 @@ pub fn repost<'a, L, C, K>(
 	args: RepostArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1048,7 +1048,7 @@ pub fn cancel<'a, L, C, K>(
 	args: CancelArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1085,7 +1085,7 @@ pub fn scan<'a, L, C, K>(
 	args: CheckArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1127,7 +1127,7 @@ pub fn address<'a, L, C, K>(
 	keychain_mask: Option<&SecretKey>,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1160,7 +1160,7 @@ pub fn proof_export<'a, L, C, K>(
 	args: ProofExportArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {
@@ -1198,7 +1198,7 @@ pub fn proof_verify<'a, L, C, K>(
 	args: ProofVerifyArgs,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
 {

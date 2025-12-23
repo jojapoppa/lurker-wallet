@@ -30,7 +30,8 @@ pub fn owner_single_use<L, F, C, K>(
 	f: F,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	//	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + 'static,
+	L: WalletLCProvider<'static, C, K> + 'static,
 	F: FnOnce(&mut Owner<'static, L, C, K>, Option<&SecretKey>) -> Result<(), ControllerError>,
 	C: NodeClient + 'static,
 	K: Keychain + 'static,
@@ -73,7 +74,7 @@ pub fn owner_listener<L, C, K>(
 	addr: &str,
 ) -> Result<(), ControllerError>
 where
-	L: WalletLCProvider<'static, C, K> + WalletOutputBatch<K> + Send + Sync + 'static,
+	L: WalletLCProvider<'static, C, K> + Send + Sync + 'static,
 	C: NodeClient + Send + Sync + 'static,
 	K: Keychain + Send + Sync + 'static,
 {
