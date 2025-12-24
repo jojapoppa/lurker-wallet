@@ -1,43 +1,26 @@
-// src/bin/lurker-wallet.rs — updated with Yggdrasil init and default info logging
+// src/bin/lurker-wallet.rs — fixed import (remove the use, call directly)
 
-// Copyright 2021 The Grin Developers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-//! Main for building the binary of a Lurker Wallet
-
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate log;
-
-use crate::cli::wallet_cli as cli;
-
+use crate::cmd::wallet_args;
 use crate::config::ConfigError;
 use crate::core::global;
+use crate::core::global::ChainType;
 use crate::util::init_logger;
+use clap::load_yaml;
 use clap::App;
+use log::debug;
+use log::error;
+use log::info;
+use log::warn;
 use lurker_core as core;
 use lurker_util as util;
+use lurker_wallet::cmd;
 use lurker_wallet_config as config;
 use lurker_wallet_impls::HTTPNodeClient;
 use std::env;
 use std::path::PathBuf;
 
-use lurker_wallet::cmd;
-
 use lurker_core::mesh::mesh_ip;
-use lurker_wallet::mesh::MeshManager;
+use lurker_core::mesh::MeshManager;
 
 // include build information
 pub mod built_info {
@@ -153,8 +136,8 @@ fn real_main() -> i32 {
 
 	log_build_info();
 
-	global::init_global_chain_type(
-		config
+	global::set_chain_type(
+		match config
 			.members
 			.as_ref()
 			.unwrap()
@@ -162,10 +145,12 @@ fn real_main() -> i32 {
 			.chain_type
 			.as_ref()
 			.unwrap()
-			.clone(),
+		{
+			global::ChainTypes::Mainnet => ChainType::Mainnet,
+			global::ChainTypes::Testnet => ChainType::Testnet,
+			_ => ChainType::Devnet,
+		},
 	);
-
-	global::init_global_accept_fee_base(config.members.as_ref().unwrap().wallet.accept_fee_base());
 
 	// Yggdrasil mesh initialization
 	let mut mesh = MeshManager::new();
@@ -182,7 +167,7 @@ fn real_main() -> i32 {
 	println!("My private address: {}", mesh_ip());
 
 	let wallet_config = config.clone().members.unwrap().wallet;
-	let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, None).unwrap();
+	let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, None);
 
 	cmd::wallet_command(&args, config, node_client)
 }

@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod cli;
+mod wallet_cli;
 
-pub use cli::command_loop;
+pub use wallet_cli::command_loop;

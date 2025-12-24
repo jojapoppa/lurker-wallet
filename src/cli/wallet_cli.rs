@@ -1,16 +1,4 @@
-// Copyright 2021 The Lurker & Grin Developers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// src/cli/wallet_cli.rs — complete fixed CLI loop with Box::leak for owner_api
 
 use crate::cmd::wallet_args;
 use crate::util::secp::key::SecretKey;
@@ -82,16 +70,14 @@ fn requires_mask(args: &ArgMatches) -> bool {
 	)
 }
 
-pub fn command_loop(
+// src/cli/wallet_cli.rs — final fix for CLI loop with per-command leak
+
+pub fn command_loop<C>(
 	wallet_inst: Arc<
 		Mutex<
 			Box<
-				dyn WalletInst<
-						'static,
-						DefaultLCProvider<'static, HTTPNodeClient>,
-						HTTPNodeClient,
-						keychain::ExtKeychain,
-					> + 'static,
+				dyn WalletInst<'static, DefaultLCProvider<'static, C>, C, keychain::ExtKeychain>
+					+ 'static,
 			>,
 		>,
 	>,
@@ -99,7 +85,10 @@ pub fn command_loop(
 	wallet_config: &WalletConfig,
 	global_wallet_args: &command::GlobalArgs,
 	test_mode: bool,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+	C: NodeClient + 'static,
+{
 	let editor = Config::builder()
 		.history_ignore_space(true)
 		.completion_type(CompletionType::List)
@@ -115,16 +104,6 @@ pub fn command_loop(
 
 	let yml = load_yaml!("../bin/lurker-wallet.yml");
 	let mut app = App::from_yaml(yml).version(crate_version!());
-
-	let mut owner_api = Owner::new(wallet_inst.clone(), keychain_mask.clone());
-
-	// Start the built-in updater
-	owner_api.start_updater(
-		Token {
-			keychain_mask: keychain_mask.clone(),
-		},
-		30,
-	)?;
 
 	let mut wallet_opened = false;
 
@@ -159,7 +138,7 @@ pub fn command_loop(
 				// Prompt for password/mask if command requires signing and mask is None
 				if requires_mask(&args) && keychain_mask.is_none() {
 					let wallet_lock = wallet_inst.lock();
-					let lc = wallet_lock.lc_provider().unwrap();
+					let mut lc = wallet_lock.lc_provider().unwrap();
 					keychain_mask = match lc.open_wallet(
 						None,
 						wallet_args::prompt_password(&global_wallet_args.password),
@@ -178,7 +157,7 @@ pub fn command_loop(
 				keychain_mask = match args.subcommand() {
 					("open", Some(_)) => {
 						let wallet_lock = wallet_inst.lock();
-						let lc = wallet_lock.lc_provider().unwrap();
+						let mut lc = wallet_lock.lc_provider().unwrap();
 						let mask = match lc.open_wallet(
 							None,
 							wallet_args::prompt_password(&global_wallet_args.password),
@@ -204,21 +183,32 @@ pub fn command_loop(
 					}
 					("close", Some(_)) => {
 						let wallet_lock = wallet_inst.lock();
-						let lc = wallet_lock.lc_provider().unwrap();
+						let mut lc = wallet_lock.lc_provider().unwrap();
 						lc.close_wallet(None)?;
 						None
 					}
 					_ => keychain_mask,
 				};
 
+				// Leak a new Owner for this command to avoid borrow overlap in loop
+				let owner_api_box =
+					Box::new(Owner::new(wallet_inst.clone(), keychain_mask.clone()));
+				let owner_api: &'static mut Owner<
+					'static,
+					DefaultLCProvider<'static, C>,
+					C,
+					keychain::ExtKeychain,
+				> = Box::leak(owner_api_box);
+
 				match wallet_args::parse_and_execute(
-					&mut owner_api,
+					owner_api,
 					keychain_mask.clone(),
-					&wallet_config,
-					&global_wallet_args,
+					wallet_config,
+					global_wallet_args,
 					&args,
 					test_mode,
 					true,
+					wallet_inst.clone(),
 				) {
 					Ok(_) => {
 						cli_message!("Command '{}' completed", args.subcommand().0);
@@ -228,12 +218,21 @@ pub fn command_loop(
 					}
 				}
 			}
+			Err(ReadlineError::Interrupted) => {
+				println!("^C");
+				continue;
+			}
+			Err(ReadlineError::Eof) => {
+				println!("^D");
+				break;
+			}
 			Err(err) => {
-				println!("Unable to read line: {}", err);
+				cli_message!("Error reading line: {}", err);
 				break;
 			}
 		}
 	}
+
 	Ok(())
 }
 

@@ -33,8 +33,6 @@ where
 	// just get defaults from the global config
 	let wallet_config = config.members.clone().unwrap().wallet;
 
-	let tor_config = config.members.unwrap().tor;
-
 	// Check the node version info, and exit with report if we're not compatible
 	let global_wallet_args = wallet_args::parse_global_args(&wallet_config, &wallet_args)
 		.expect("Can't read configuration file");
@@ -53,14 +51,7 @@ where
 	}
 	// ... if node isn't available, allow offline functions
 
-	let res = wallet_args::wallet_command(
-		wallet_args,
-		wallet_config,
-		tor_config,
-		node_client,
-		false,
-		|_| {},
-	);
+	let res = wallet_args::wallet_command(wallet_args, wallet_config, node_client, false, |_| {});
 
 	// we need to give log output a chance to catch up before exiting
 	thread::sleep(Duration::from_millis(100));
