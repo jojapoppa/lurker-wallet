@@ -24,6 +24,8 @@ tokio =  "0.1.11"
 blake2-rfc = "0.2"
 bufstream = "0.1"
 
+api_common = { path = "../../lurker/api_common" }
+
 #lurker_apiwallet = { path = "../wallet_api", version = "1.1.0" }
 #lurker_libwallet = { path = "../libwallet", version = "1.1.0" }
 #lurker_refwallet = { path = "../refwallet", version = "1.1.0" }

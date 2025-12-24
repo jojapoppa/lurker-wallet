@@ -16,7 +16,7 @@ name = "lurker-wallet"
 path = "src/bin/lurker-wallet.rs"
 
 [workspace]
-members = ["config", "controller", "impls", "libwallet", "util", "api_common", "lurker-watch-only", "lurker-hot-wallet"]
+members = ["config", "controller", "impls", "libwallet", "util", "lurker-watch-only", "lurker-hot-wallet"]
 exclude = ["integration"]
 
 [workspace.dependencies]
