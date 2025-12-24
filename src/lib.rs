@@ -16,7 +16,6 @@ extern crate lazy_static;
 #[macro_use]
 extern crate clap;
 
-use api_common as api;
 use lurker_util as util;
 use lurker_wallet_config as config;
 
